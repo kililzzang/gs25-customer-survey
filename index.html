@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GS25 고객 설문조사</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .lucide-icon {
+            width: 1em;
+            height: 1em;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+        
+        // Lucide Icons as SVG components
+        const MessageCircle = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+            </svg>
+        );
+
+        const BarChart3 = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M3 3v18h18"/>
+                <path d="M18 17V9"/>
+                <path d="M13 17V5"/>
+                <path d="M8 17v-3"/>
+            </svg>
+        );
+
+        const Users = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        );
+
+        const TrendingUp = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/>
+                <polyline points="16,7 22,7 22,13"/>
+            </svg>
+        );
+
+        const ArrowRight = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M5 12h14"/>
+                <path d="M12 5l7 7-7 7"/>
+            </svg>
+        );
+
+        const Send = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                <path d="M21.854 2.147L10.61 13.39"/>
+            </svg>
+        );
+
+        const MapPin = () => (
+            <svg className="lucide-icon" viewBox="0 0 24 24">
+                <path d="M20 10c0 6-10 12-10 12s-10-6-10-12a10 10 0 0 1 20 0Z"/>
+                <circle cx="12" cy="10" r="3"/>
+            </svg>
+        );
+
+        const ConvenienceStoreSurvey = () => {
+            const [currentView, setCurrentView] = useState('survey'); // 자동으로 설문 시작
+            const [responses, setResponses] = useState([]);
+            const [currentQuestion, setCurrentQuestion] = useState(0);
+            const [currentResponse, setCurrentResponse] = useState({});
+            const [chatMessages, setChatMessages] = useState([]);
+            const [userInput, setUserInput] = useState('');
+
+            // 지도 구역 정의
+            const mapAreas = [
+                { 
+                    id: 'A', 
+                    name: 'A구역 (신상슈퍼~FOR YOU 25 일대)', 
+                    color: '#3B82F6',
+                    coordinates: { top: 5, left: 5, width: 22, height: 85 }
+                },
+                { 
+                    id: 'B', 
+                    name: 'B구역 (스토리헤어 송탄역맞이광장 일대)', 
+                    color: '#EF4444',
+                    coordinates: { top: 5, left: 27, width: 25, height: 75 }
+                },
+                { 
+                    id: 'C', 
+                    name: 'C구역 (GS25 송탄센트점 일대)', 
+                    color: '#10B981',
+                    coordinates: { top: 5, left: 52, width: 20, height: 50 }
+                },
+                { 
+                    id: 'D', 
+                    name: 'D구역 (세븐일레븐 평택송탄역점 일대)', 
+                    color: '#F59E0B',
+                    coordinates: { top: 5, left: 72, width: 23, height: 45 }
+                },
+                { 
+                    id: 'E', 
+                    name: 'E구역 (CU 평택황금점~메가MGC커피 일대)', 
+                    color: '#8B5CF6',
+                    coordinates: { top: 50, left: 27, width: 45, height: 45 }
+                },
+                { 
+                    id: 'F', 
+                    name: 'F구역 (GS25 평택심장점 일대)', 
+                    color: '#EC4899',
+                    coordinates: { top: 50, left: 72, width: 23, height: 45 }
+                }
+            ];
+
+            const questions = [
+                {
+                    id: 'location',
+                    type: 'area',
+                    question: '당신은 어디서 오셨나요?'
+                },
+                {
+                    id: 'gender',
+                    type: 'single',
+                    question: '당신의 성별은 무엇인가요?',
+                    options: ['남성', '여성']
+                },
+                {
+                    id: 'age',
+                    type: 'single',
+                    question: '당신의 나이는 얼마인가요?',
+                    options: ['10대', '20대', '30대', '40대', '50대', '60대', '70대 이상']
+                },
+                {
+                    id: 'visitTime',
+                    type: 'single',
+                    question: '이 편의점을 주로 언제(몇시) 이용하시나요?',
+                    options: [
+                        '오전 (새벽6시~11시)',
+                        '점심시간 (11시~14시)',
+                        '오후/저녁 (14시~20시)',
+                        '야간/심야 (20시~새벽6시)'
+                    ]
+                },
+                {
+                    id: 'products',
+                    type: 'multiple',
+                    question: '이 편의점에서 주로 구매하는 상품은 무엇인가요? (복수 선택 가능)',
+                    options: [
+                        '라면/즉석식품 (라면, 핫바 등)',
+                        '음료/커피',
+                        '택배접수',
+                        '담배',
+                        '과자/초콜릿/캔디/아이스크림',
+                        '간편식 (삼각김밥, 도시락, 빵/샌드위치 등)',
+                        '계절 상품 (고구마/어묵)',
+                        '안주류 (치즈,육포 등)',
+                        '건강식 (닭가슴살/샐러드)',
+                        '생활용품 (화장지, 여성용품 등)',
+                        '디저트 (케이크 등)',
+                        '주류 (소주, 맥주 등)'
+                    ]
+                },
+                {
+                    id: 'competitorReasons',
+                    type: 'multiple',
+                    question: '근처 다른 편의점을 이용한 경험이 있다면 그 이유는 무엇이었나요? (복수 선택 가능)',
+                    options: [
+                        '원하는 물건이 항상 있음',
+                        '매장이 넓고 쾌적함',
+                        '가까움',
+                        '행사가 매력적임',
+                        '상품이 다양함',
+                        '계산이 편리함',
+                        '직원이 친절함'
+                    ]
+                },
+                {
+                    id: 'competitorStore',
+                    type: 'single',
+                    question: '타점포를 이용하신다면 어느 곳인가요?',
+                    options: [
+                        '세븐일레븐 평택송탄중앙점',
+                        '세븐일레븐 송탄클래시아점',
+                        '세븐일레븐 평택송탄역점',
+                        'CU 평택서신원룸점',
+                        'GS25 송탄센트점',
+                        'CU 평택황금점',
+                        'GS25 평택심장점',
+                        '기타 편의점',
+                        '이용하지 않음'
+                    ]
+                },
+                {
+                    id: 'improvements',
+                    type: 'text',
+                    question: '마지막으로, 저희 GS25를 이용하시면서 개선되었으면 하는 점이 있다면 자유롭게 말씀해 주세요. (구체적일수록 좋습니다!)'
+                }
+            ];
+
+            // 설문 데이터 Google Sheets로 전송하는 함수
+            const submitToGoogleSheets = async (responseData) => {
+                // 여기에 Google Apps Script Web App URL을 넣으세요
+                const scriptUrl = 'YOUR_GOOGLE_SCRIPT_URL'; // 나중에 설정
+                
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(responseData)
+                    });
+                    console.log('데이터가 Google Sheets에 저장되었습니다.');
+                } catch (error) {
+                    console.error('데이터 저장 오류:', error);
+                }
+            };
+
+            useEffect(() => {
+                if (currentView === 'survey' && chatMessages.length === 0) {
+                    setChatMessages([
+                        {
+                            type: 'bot',
+                            content: '안녕하세요! GS25 고객 만족도 설문조사에 참여해 주셔서 감사합니다. 몇 가지 질문을 드리겠습니다.',
+                            timestamp: new Date()
+                        },
+                        {
+                            type: 'bot',
+                            content: questions[0].question,
+                            timestamp: new Date(),
+                            options: questions[0].options,
+                            questionType: questions[0].type,
+                            questionId: questions[0].id
+                        }
+                    ]);
+                }
+            }, [currentView]);
+
+            const AreaSelector = ({ onSelect, selectedArea }) => {
+                const [hoveredArea, setHoveredArea] = useState(null);
+
+                return (
+                    <div className="mt-3 bg-white border rounded-lg">
+                        <div className="p-3 border-b bg-gray-50">
+                            <h4 className="text-sm font-medium flex items-center">
+                                <MapPin className="h-4 w-4 mr-2" />
+                                지역 선택 (A~F 구역)
+                            </h4>
+                        </div>
+                        <div className="relative">
+                            <div className="w-full h-80 bg-gray-100 relative overflow-hidden border" 
+                                 style={{
+                                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-opacity='0.03'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z'/%3E%3C/g%3E%3C/svg%3E")`,
+                                     backgroundSize: '50px 50px'
+                                 }}>
+                                
+                                <div className="absolute top-16 left-20 right-20 h-1 bg-blue-600 opacity-40"></div>
+                                <div className="absolute top-32 left-10 right-10 h-1 bg-blue-600 opacity-40"></div>
+                                <div className="absolute top-48 left-15 right-15 h-1 bg-blue-600 opacity-40"></div>
+                                
+                                {mapAreas.map((area) => (
+                                    <div
+                                        key={area.id}
+                                        className={`absolute border-2 border-dashed cursor-pointer transition-all duration-200 ${
+                                            selectedArea?.id === area.id 
+                                                ? 'bg-opacity-30 border-solid shadow-lg z-10' 
+                                                : hoveredArea?.id === area.id 
+                                                    ? 'bg-opacity-20 border-solid' 
+                                                    : 'bg-opacity-10 border-opacity-50'
+                                        }`}
+                                        style={{
+                                            top: `${area.coordinates.top}%`,
+                                            left: `${area.coordinates.left}%`,
+                                            width: `${area.coordinates.width}%`,
+                                            height: `${area.coordinates.height}%`,
+                                            backgroundColor: area.color,
+                                            borderColor: area.color
+                                        }}
+                                        onClick={() => onSelect(area)}
+                                        onMouseEnter={() => setHoveredArea(area)}
+                                        onMouseLeave={() => setHoveredArea(null)}
+                                    >
+                                        <div 
+                                            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 font-bold text-2xl text-white drop-shadow-lg"
+                                            style={{ color: area.color, textShadow: '2px 2px 4px rgba(0,0,0,0.5)' }}
+                                        >
+                                            {area.id}
+                                        </div>
+                                    </div>
+                                ))}
+                                
+                                {hoveredArea && (
+                                    <div className="absolute z-20 bg-black text-white text-xs p-2 rounded shadow-lg pointer-events-none max-w-48"
+                                         style={{
+                                             left: `${hoveredArea.coordinates.left + hoveredArea.coordinates.width/2}%`,
+                                             top: `${hoveredArea.coordinates.top - 5}%`,
+                                             transform: 'translate(-50%, -100%)'
+                                         }}>
+                                        <div className="font-medium">{hoveredArea.id}구역</div>
+                                        <div className="text-gray-300 text-xs">{hoveredArea.name}</div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="p-3 border-t">
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                {mapAreas.map(area => (
+                                    <div key={area.id} className="flex items-center">
+                                        <div 
+                                            className="w-3 h-3 rounded mr-2 border"
+                                            style={{ backgroundColor: area.color }}
+                                        ></div>
+                                        <span className="truncate">{area.id}: {area.name.split('(')[1]?.replace(')', '') || area.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {selectedArea && (
+                            <div className="p-3 border-t" style={{ backgroundColor: `${selectedArea.color}15` }}>
+                                <div className="text-sm">
+                                    <div className="font-medium flex items-center">
+                                        <div 
+                                            className="w-4 h-4 rounded mr-2"
+                                            style={{ backgroundColor: selectedArea.color }}
+                                        ></div>
+                                        {selectedArea.id}구역 선택됨
+                                    </div>
+                                    <div className="text-gray-600 text-xs mt-1">{selectedArea.name}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            const handleAreaSelect = (area) => {
+                const currentQuestionData = questions[currentQuestion];
+                setCurrentResponse(prev => ({
+                    ...prev,
+                    [currentQuestionData.id]: area.name
+                }));
+
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        type: 'user',
+                        content: `${area.id}구역 - ${area.name}`,
+                        timestamp: new Date()
+                    }
+                ]);
+
+                setTimeout(() => moveToNextQuestion(), 1000);
+            };
+
+            const handleOptionSelect = (option, questionId, questionType) => {
+                if (questionType === 'single') {
+                    setCurrentResponse(prev => ({
+                        ...prev,
+                        [questionId]: option
+                    }));
+                } else if (questionType === 'multiple') {
+                    setCurrentResponse(prev => {
+                        const currentSelections = prev[questionId] || [];
+                        const newSelections = currentSelections.includes(option)
+                            ? currentSelections.filter(item => item !== option)
+                            : [...currentSelections, option];
+                        return {
+                            ...prev,
+                            [questionId]: newSelections
+                        };
+                    });
+                }
+
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        type: 'user',
+                        content: option,
+                        timestamp: new Date()
+                    }
+                ]);
+
+                if (questionType === 'single') {
+                    setTimeout(() => moveToNextQuestion(), 1000);
+                }
+            };
+
+            const handleTextSubmit = () => {
+                if (!userInput.trim()) return;
+
+                const currentQuestionData = questions[currentQuestion];
+                setCurrentResponse(prev => ({
+                    ...prev,
+                    [currentQuestionData.id]: userInput
+                }));
+
+                setChatMessages(prev => [
+                    ...prev,
+                    {
+                        type: 'user',
+                        content: userInput,
+                        timestamp: new Date()
+                    }
+                ]);
+
+                setUserInput('');
+                setTimeout(() => moveToNextQuestion(), 1000);
+            };
+
+            const moveToNextQuestion = () => {
+                if (currentQuestion < questions.length - 1) {
+                    const nextQuestion = currentQuestion + 1;
+                    setCurrentQuestion(nextQuestion);
+                    
+                    setChatMessages(prev => [
+                        ...prev,
+                        {
+                            type: 'bot',
+                            content: questions[nextQuestion].question,
+                            timestamp: new Date(),
+                            options: questions[nextQuestion].options,
+                            questionType: questions[nextQuestion].type,
+                            questionId: questions[nextQuestion].id
+                        }
+                    ]);
+                } else {
+                    // Survey completed
+                    const newResponse = {
+                        ...currentResponse,
+                        id: Date.now(),
+                        timestamp: new Date(),
+                        completed: true
+                    };
+                    
+                    // Google Sheets에 데이터 전송
+                    submitToGoogleSheets(newResponse);
+                    
+                    setResponses(prev => [...prev, newResponse]);
+                    
+                    setChatMessages(prev => [
+                        ...prev,
+                        {
+                            type: 'bot',
+                            content: '설문조사가 완료되었습니다! 소중한 의견을 주셔서 감사합니다. 🎉\n\n결과 확인을 원하시면 하단의 "결과 보기" 버튼을 클릭해 주세요.',
+                            timestamp: new Date()
+                        }
+                    ]);
+                }
+            };
+
+            const resetSurvey = () => {
+                setCurrentQuestion(0);
+                setCurrentResponse({});
+                setChatMessages([]);
+                setUserInput('');
+            };
+
+            const currentQuestionData = questions[currentQuestion];
+            const isMultipleChoice = currentQuestionData?.type === 'multiple';
+            const isTextInput = currentQuestionData?.type === 'text';
+            const isAreaInput = currentQuestionData?.type === 'area';
+
+            return (
+                <div className="min-h-screen bg-gray-50 p-4">
+                    <div className="max-w-2xl mx-auto">
+                        <div className="bg-white rounded-lg shadow-lg">
+                            <div className="bg-blue-600 text-white p-4 rounded-t-lg">
+                                <div className="flex justify-between items-center">
+                                    <h2 className="text-xl font-semibold">GS25 고객 설문조사</h2>
+                                    <div className="flex space-x-2">
+                                        <button
+                                            onClick={() => {
+                                                setCurrentView('results');
+                                            }}
+                                            className="text-blue-200 hover:text-white text-sm px-2 py-1 rounded"
+                                            disabled={responses.length === 0}
+                                        >
+                                            결과보기
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                resetSurvey();
+                                                window.location.reload();
+                                            }}
+                                            className="text-blue-200 hover:text-white"
+                                        >
+                                            새로고침
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="mt-2">
+                                    <div className="bg-blue-500 rounded-full h-2">
+                                        <div 
+                                            className="bg-white rounded-full h-2 transition-all duration-300"
+                                            style={{
+                                                width: `${((currentQuestion + 1) / questions.length) * 100}%`
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="text-sm mt-1 text-blue-100">
+                                        {currentQuestion + 1} / {questions.length}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="h-96 overflow-y-auto p-4 space-y-4">
+                                {chatMessages.map((message, index) => (
+                                    <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                                            message.type === 'user' 
+                                                ? 'bg-blue-600 text-white' 
+                                                : 'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            <p className="text-sm whitespace-pre-line">{message.content}</p>
+                                            {message.options && message.type === 'bot' && message.questionType !== 'area' && (
+                                                <div className="mt-3 space-y-2">
+                                                    {message.options.map((option, optIndex) => (
+                                                        <button
+                                                            key={optIndex}
+                                                            onClick={() => handleOptionSelect(option, message.questionId, message.questionType)}
+                                                            className={`block w-full text-left p-2 text-xs rounded border hover:bg-gray-50 transition-colors ${
+                                                                message.questionType === 'multiple' && 
+                                                                currentResponse[message.questionId]?.includes(option)
+                                                                    ? 'bg-blue-50 border-blue-300'
+                                                                    : 'border-gray-200'
+                                                            }`}
+                                                        >
+                                                            {message.questionType === 'multiple' && (
+                                                                <span className="mr-2">
+                                                                    {currentResponse[message.questionId]?.includes(option) ? '☑️' : '☐'}
+                                                                </span>
+                                                            )}
+                                                            {option}
+                                                        </button>
+                                                    ))}
+                                                    {message.questionType === 'multiple' && (
+                                                        <button
+                                                            onClick={moveToNextQuestion}
+                                                            className="w-full mt-3 bg-blue-600 text-white py-2 px-4 rounded text-xs hover:bg-blue-700 transition-colors"
+                                                            disabled={!currentResponse[message.questionId]?.length}
+                                                        >
+                                                            선택 완료
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {message.type === 'bot' && message.questionType === 'area' && (
+                                                <AreaSelector 
+                                                    onSelect={handleAreaSelect}
+                                                    selectedArea={mapAreas.find(a => a.name === currentResponse[message.questionId])}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {isTextInput && (
+                                <div className="border-t p-4">
+                                    <div className="flex space-x-2">
+                                        <input
+                                            type="text"
+                                            value={userInput}
+                                            onChange={(e) => setUserInput(e.target.value)}
+                                            onKeyPress={(e) => e.key === 'Enter' && handleTextSubmit()}
+                                            placeholder="답변을 입력하세요..."
+                                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                                        />
+                                        <button
+                                            onClick={handleTextSubmit}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                                        >
+                                            <Send />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isAreaInput && (
+                                <div className="border-t p-4">
+                                    <div className="text-center text-sm text-gray-500">
+                                        <MapPin className="h-4 w-4 inline mr-1" />
+                                        위 지도에서 해당하는 구역(A~F)을 선택해 주세요
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 설문 완료 후 결과 보기 버튼 */}
+                        {currentQuestion >= questions.length - 1 && currentResponse.improvements && (
+                            <div className="mt-4 text-center">
+                                <button
+                                    onClick={() => setCurrentView('results')}
+                                    className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors inline-flex items-center"
+                                >
+                                    <BarChart3 className="mr-2 h-5 w-5" />
+                                    설문 결과 확인하기
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // 간단한 라우팅을 위한 메인 앱 컴포넌트
+        const App = () => {
+            return <ConvenienceStoreSurvey />;
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+
+    <!-- Google Analytics (선택사항) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'GA_MEASUREMENT_ID');
+    </script>
+</body>
+</html>
