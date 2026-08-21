@@ -70,6 +70,48 @@ npm run dev
     인근방문자지도)의 스키마
 13. `0013_feature_flags_stage23_activation.sql` — 외부 API 없이 실제로 동작하는
     2·3단계 기능만 활성화
+14. `0014_anti_scraping.sql` — `rate_limit_events`/`anomaly_flags`, `check_rate_limit()`
+    (계정/IP 기준 rate limit + 이상 탐지 자동 플래그), `unlock_spot_details` RPC에 적용
+15. `0015_photo_storage_originals.sql` — 비공개 원본 사진 버킷(`spot-photos-originals`),
+    `spot_photos.original_storage_path`
+
+### 무단 크롤링/스크래핑 방지
+
+클라이언트 단 텍스트 복사방지(CSS user-select 차단 등)는 넣지 않았습니다 — 우회가 쉽고
+UX만 저해합니다. 대신 실제로 강제되는 API 레벨 방어를 이중으로 두었습니다.
+
+1. **계정 기준 rate limit (주 방어, 우회 불가)** — `unlock_spot_details` RPC와
+   GPX 다운로드 라우트 내부에서 `auth.uid()` 기준 분당 요청 수를 체크합니다. DB 레벨이라
+   Supabase REST를 직접 호출해도 피할 수 없습니다 (`check_rate_limit()`, 0014).
+2. **IP 기준 보조 rate limit** — `proxy.ts`가 `/spots/:slug`, `/api/spots/*` 요청에 대해
+   해시된 IP 기준으로 분당 60건까지 허용합니다 (`lib/supabase/proxy.ts`의
+   `checkIpRateLimitForRequest`). 원문 IP는 저장하지 않고 SHA-256 해시만 기록합니다.
+3. **`app/robots.ts`** — `/api/`, `/auth/`, `/spots/*/contribute`를 크롤러에 명시적으로
+   차단. 스팟 상세 페이지 자체(공개 정보)는 계속 색인 허용.
+4. **이상 탐지 자동 플래그** — rate limit 초과, 짧은 시간 내 다수 스팟 순차 조회(5분 내
+   15곳 이상) 패턴을 `anomaly_flags`에 자동 기록합니다(자동 차단 아님, 관리자 검토용).
+   기존 자동화 배치(`auto_hide_flagged_spots`, `apply_trust_decay` 등)와 동일한
+   Postgres 함수 + 테이블 패턴을 재사용했습니다.
+
+### 사진 워터마크
+
+유저가 업로드하는 사진은 `app/api/uploads/photo`에서 서버가 처리합니다
+(`lib/watermark.ts`, `sharp` 사용, Node.js 런타임 필요):
+
+1. 원본을 비공개 버킷(`spot-photos-originals`)에 저장 — `lib/supabase/admin.ts`의
+   service-role 클라이언트만 접근 가능 (검증/분쟁 대응용).
+2. 우측 하단에 "물빛 · {스팟명}" 텍스트 워터마크를 합성한 버전만 공개 버킷
+   (`spot-photos`)에 저장 — 상세페이지에는 이 워터마크본만 노출됩니다.
+3. EXIF GPS는 클라이언트 신고값을 신뢰하지 않고, 서버가 원본 파일에서 `exifr`로
+   직접 재추출한 뒤 `verify_photo_gps` RPC로 스팟 좌표 대비 오차를 검증합니다.
+
+현재 `/spots/[slug]/contribute` 폼에서 실제로 동작합니다. 신규 스팟 제보(`/submit`)는
+제보 시점에 아직 `spots` row가 없어(승인 후 생성) 연결하지 않았습니다 — `spot_photos.spot_id`를
+nullable로 바꾸는 등 스키마/승인 플로우에 영향을 주는 결정이 필요해 보류했습니다
+(코드 주석에 명시).
+
+로고 이미지 파일이 없어 텍스트 워터마크로 구현했습니다. 실제 로고 이미지가 생기면
+`lib/watermark.ts`의 SVG 텍스트 부분을 `<image>` composite로 교체하면 됩니다.
 
 ### 정확한 위치와 접근 방법 (스팟 상세 로드맵)
 

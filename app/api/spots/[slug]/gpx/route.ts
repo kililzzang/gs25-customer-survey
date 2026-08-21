@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSpotBySlug, getSpotAccessSteps } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * GPX 경로 다운로드 (feature flag: gpx_route_download).
@@ -24,6 +25,18 @@ export async function GET(
   const { spot } = await getSpotBySlug(slug);
   if (!spot) {
     return NextResponse.json({ error: "존재하지 않는 스팟입니다." }, { status: 404 });
+  }
+
+  const allowed = await checkRateLimit(`user:${user.id}`, {
+    path: "gpx_download",
+    spotId: spot.id,
+    limitPerMinute: 15,
+  });
+  if (!allowed) {
+    return NextResponse.json(
+      { error: "다운로드 요청이 너무 많습니다. 잠시 후 다시 시도해주세요." },
+      { status: 429 }
+    );
   }
 
   const steps = await getSpotAccessSteps(spot.id, slug);

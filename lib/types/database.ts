@@ -141,6 +141,8 @@ export type SpotPhotoRow = {
   spot_id: string;
   uploader_id: string | null;
   storage_path: string;
+  /** 비공개 원본 버킷(spot-photos-originals) 경로. 검증/분쟁 대응용, service-role만 접근. */
+  original_storage_path: string | null;
   exif_lat: number | null;
   exif_lng: number | null;
   exif_gps_delta_m: number | null;
@@ -314,6 +316,19 @@ export interface Database {
           has_restroom: boolean | null;
           has_shower: boolean | null;
         }[];
+      };
+      check_rate_limit: {
+        Args: {
+          p_identity_key: string;
+          p_path: string | null;
+          p_spot_id: string | null;
+          p_limit_per_minute: number;
+        };
+        Returns: boolean;
+      };
+      verify_photo_gps: {
+        Args: { p_photo_id: string; p_threshold_m: number };
+        Returns: undefined;
       };
     };
     Enums: Record<string, never>;
