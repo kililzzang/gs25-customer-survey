@@ -19,6 +19,7 @@ export type RegionCode =
 
 export type SpotStatus = "pending" | "verified" | "needs_update" | "hidden" | "rejected";
 export type CurrentLevel = "calm" | "moderate" | "strong" | "unknown";
+export type SpotDifficulty = "beginner" | "intermediate" | "advanced";
 export type GuideTier = "newbie" | "explorer" | "local_guide" | "master";
 export type ReportType =
   | "new_spot"
@@ -34,20 +35,27 @@ export type SpotRow = {
   slug: string;
   name: string;
   region: RegionCode;
+  /** 시/군 단위 세부 지역명 (예: "삼척", "울진"). region enum보다 세분화된 표시용 텍스트. */
+  subregion: string | null;
   description: string | null;
   approx_lat: number;
   approx_lng: number;
+  /** 좌표가 실사(GPS 현장 측정)로 검증되었는지 여부. false면 지도 기준 추정치. */
+  coordinates_verified: boolean;
   depth_min_m: number | null;
   depth_max_m: number | null;
   visibility_m: number | null;
   current_level: CurrentLevel;
   water_temp_c: number | null;
+  difficulty: SpotDifficulty | null;
   is_hidden: boolean;
   status: SpotStatus;
   trust_score: number;
   last_verified_at: string | null;
   like_count: number;
   first_reporter_id: string | null;
+  /** 성능/부하 테스트용 자동 생성 더미 스팟 여부. 오픈 전 전량 삭제 대상. */
+  synthetic_test: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -46,12 +46,18 @@ export default async function SpotDetailPage({
             {spot.is_hidden && <HiddenBadge size="md" />}
           </div>
           <p className="mt-2 text-sm text-sand/50">
-            {SPOT_STATUS_LABEL[spot.status]} · 신뢰도{" "}
+            {SPOT_STATUS_LABEL[spot.status]}
+            {spot.subregion && <> · {spot.subregion}</>} · 신뢰도{" "}
             <span className="font-mono text-foam/80">{spot.trust_score}</span>
             {spot.last_verified_at && (
               <> · 최근 검증 {new Date(spot.last_verified_at).toLocaleDateString("ko-KR")}</>
             )}
           </p>
+          {!spot.coordinates_verified && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-coral/30 bg-coral/10 px-3 py-1 text-xs text-coral">
+              ⚠ 좌표 미검증 — 지도 기준 추정 위치이며 실사 검증 전입니다
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button className="rounded-full border border-foam/30 px-4 py-2 text-sm text-sand/80 transition hover:border-foam hover:text-foam">

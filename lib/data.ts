@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import {
   MOCK_SPOTS,
+  MOCK_SYNTHETIC_TEST_SPOTS,
   MOCK_SAFETY_INFO,
   MOCK_LOCKED_INFO,
   MOCK_PARTNER_LISTINGS,
@@ -28,11 +29,23 @@ import type {
  * 실제 프로젝트 연결 후에도 함수 시그니처는 그대로 유지됩니다.
  */
 
+/**
+ * 목업 모드에서 사용할 스팟 풀. NEXT_PUBLIC_INCLUDE_SYNTHETIC_TEST_SPOTS=true 일 때만
+ * 성능 테스트용 더미 스팟 240개를 함께 노출합니다 (기본은 실제 스팟만).
+ */
+function getMockSpotPool(): SpotRow[] {
+  return process.env.NEXT_PUBLIC_INCLUDE_SYNTHETIC_TEST_SPOTS === "true"
+    ? [...MOCK_SPOTS, ...MOCK_SYNTHETIC_TEST_SPOTS]
+    : MOCK_SPOTS;
+}
+
 export async function getSpotsByRegion(region: RegionCode): Promise<SpotRow[]> {
   const supabase = await createClient();
 
   if (!supabase) {
-    return MOCK_SPOTS.filter((s) => s.region === region && s.status !== "hidden" && s.status !== "rejected");
+    return getMockSpotPool().filter(
+      (s) => s.region === region && s.status !== "hidden" && s.status !== "rejected"
+    );
   }
 
   const { data, error } = await supabase
@@ -53,7 +66,7 @@ export async function getAllSpots(): Promise<SpotRow[]> {
   const supabase = await createClient();
 
   if (!supabase) {
-    return MOCK_SPOTS.filter((s) => s.status !== "hidden" && s.status !== "rejected");
+    return getMockSpotPool().filter((s) => s.status !== "hidden" && s.status !== "rejected");
   }
 
   const { data, error } = await supabase
@@ -77,10 +90,18 @@ export async function getSpotBySlug(slug: string): Promise<{
   const supabase = await createClient();
 
   if (!supabase) {
-    const spot = MOCK_SPOTS.find((s) => s.slug === slug) ?? null;
+    const spot = getMockSpotPool().find((s) => s.slug === slug) ?? null;
+    const fallbackSafety: SpotSafetyInfoRow | null = spot?.synthetic_test
+      ? {
+          spot_id: spot.id,
+          emergency_contacts: [{ label: "해양경찰 122", phone: "122" }],
+          current_warning: null,
+          updated_at: spot.updated_at,
+        }
+      : null;
     return {
       spot,
-      safety: spot ? MOCK_SAFETY_INFO[slug] ?? null : null,
+      safety: spot ? (MOCK_SAFETY_INFO[slug] ?? fallbackSafety) : null,
       partners: MOCK_PARTNER_LISTINGS.filter((p) => p.spot_id === spot?.id),
     };
   }

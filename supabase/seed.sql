@@ -43,6 +43,70 @@ with s as (
 )
 select id, slug, is_hidden from s;
 
+-- ------------------------------------------------------------------
+-- 실제 스팟 21곳 추가 (2026-08 제보 목록 기반)
+-- ⚠️ 좌표는 정확한 실사 측정치가 아닌 지도 기준 추정치입니다.
+--    coordinates_verified = false 로 표시하며, 런칭 전 반드시 현장 실사로
+--    정확한 좌표를 재확인해야 합니다 (spots.coordinates_verified 컬럼 참고,
+--    supabase/migrations/0007_spot_metadata_flags.sql).
+-- ------------------------------------------------------------------
+
+with s2 as (
+  insert into spots (
+    slug, name, region, subregion, description,
+    approx_lat, approx_lng, coordinates_verified,
+    depth_min_m, depth_max_m, visibility_m, current_level, water_temp_c,
+    difficulty, is_hidden, status, trust_score, last_verified_at, like_count
+  ) values
+    -- 강원
+    ('jangho-hang-samcheok', '장호항', 'gangwon', '삼척', '한국의 나폴리, 갯바위가 파도를 막아주는 잔잔한 포인트',
+      37.024, 129.322, false, 1, 4, 6, 'calm', 19, 'beginner', false, 'verified', 60, null, 0),
+    ('galnam-hang-samcheok', '갈남항', 'gangwon', '삼척', '조용한 어촌마을, 맑은 수질의 숨은 명소',
+      37.011, 129.317, false, 1, 4, 7, 'calm', 19, 'beginner', true, 'verified', 60, null, 0),
+    ('songjiho-beach-goseong', '송지호해수욕장', 'gangwon', '고성', '긴 해변, 서낭바위 쪽 스노클링 포인트 형성',
+      38.313, 128.499, false, 1, 3, 5, 'calm', 20, 'beginner', false, 'verified', 60, null, 0),
+    ('hajodae-point-yangyang', '하조대전망대 포인트', 'gangwon', '양양', '가두리 지형으로 파도 잔잔, 수심 3~5m 균일',
+      38.092, 128.789, false, 3, 5, 6, 'calm', 19, 'beginner', true, 'verified', 60, null, 0),
+    ('namae-3ri-yangyang', '남애3리', 'gangwon', '양양', '로컬 서퍼들 사이에서 알려진 조용한 포인트',
+      37.995, 128.798, false, 1, 4, 6, 'calm', 19, 'beginner', true, 'verified', 60, null, 0),
+    ('sodol-beach-yangyang', '소돌해변', 'gangwon', '양양', '작은 규모의 한적한 스노클링 스팟',
+      38.075, 128.628, false, 1, 3, 5, 'calm', 19, 'beginner', true, 'verified', 60, null, 0),
+    ('simgok-hang-gangneung', '심곡항', 'gangwon', '강릉', '7번 국도 옆 빨간 등대 아래 비밀의 포인트',
+      37.729, 128.909, false, 1, 4, 7, 'calm', 18, 'beginner', true, 'verified', 60, null, 0),
+    ('jajakdo-beach-goseong', '자작도해변', 'gangwon', '고성', '완만한 긴 해안선, 소나무숲과 청정 동해',
+      38.450, 128.474, false, 1, 3, 6, 'calm', 20, 'beginner', false, 'verified', 60, null, 0),
+    ('panji-hang-goseong', '판지항', 'gangwon', '고성', '낚시 명소에서 스노클링 명소로 부상, 안전요원 없음 주의',
+      38.466, 128.470, false, 3, 12, 8, 'moderate', 18, 'intermediate', true, 'verified', 55, null, 0),
+    -- 경북
+    ('nagok-beach-uljin', '나곡해수욕장', 'gyeongbuk', '울진', '동해 대표 스쿠버·스노클링 지역',
+      36.993, 129.417, false, 3, 20, 10, 'moderate', 19, 'intermediate', false, 'verified', 60, null, 0),
+    ('hujeong-beach-uljin', '후정해수욕장', 'gyeongbuk', '울진', '울진 다이빙 명소 중 한 곳',
+      36.982, 129.416, false, 3, 18, 9, 'moderate', 19, 'intermediate', false, 'verified', 60, null, 0),
+    ('yangjeong-beach-uljin', '양정해수욕장', 'gyeongbuk', '울진', '다양한 다이빙 포인트가 밀집한 구역',
+      36.970, 129.415, false, 3, 15, 9, 'moderate', 19, 'intermediate', true, 'verified', 60, null, 0),
+    ('gusan-beach-uljin', '구산해수욕장', 'gyeongbuk', '울진', '난파선 포인트로도 알려진 해안선',
+      36.960, 129.414, false, 5, 25, 8, 'moderate', 19, 'intermediate', true, 'verified', 60, null, 0),
+    ('hupo-beach-uljin', '후포해수욕장', 'gyeongbuk', '울진', '울진 대표 다이빙 명소',
+      36.677, 129.453, false, 3, 18, 10, 'moderate', 19, 'intermediate', false, 'verified', 60, null, 0),
+    ('guryongpo-beach-pohang', '구룡포해변', 'gyeongbuk', '포항', '수심 10~30m, 수중바위와 산호초 관찰 가능',
+      35.988, 129.559, false, 10, 30, 9, 'moderate', 20, 'intermediate', false, 'verified', 60, null, 0),
+    ('gampo-songdaemal-gyeongju', '감포바다 (송대말등대)', 'gyeongbuk', '경주', '에메랄드빛 해변, 조용한 숨은 명소로 부상 중',
+      35.799, 129.499, false, 1, 5, 8, 'calm', 21, 'beginner', true, 'verified', 60, null, 0),
+    -- 경남/전남
+    ('oryukdo-busan', '오륙도 인근', 'gyeongnam', '부산 남구', '도시 속 숨은 다이빙 포인트, 절벽 지형',
+      35.101, 129.111, false, 5, 20, 8, 'moderate', 22, 'intermediate', true, 'verified', 55, null, 0),
+    ('gujora-yundoldo-geoje', '거제 구조라 윤돌섬', 'gyeongnam', '거제', '카약/제트스키로 접근하는 무인도, 독특한 바위 지형',
+      34.775, 128.700, false, 3, 15, 9, 'moderate', 22, 'intermediate', true, 'verified', 55, null, 0),
+    ('tongyeong-hongdo', '통영 홍도', 'gyeongnam', '통영', '한려해상국립공원의 보석, 수중동굴과 청정 바다',
+      34.397, 128.221, false, 5, 20, 12, 'moderate', 22, 'intermediate', false, 'verified', 60, null, 0),
+    ('yeosu-ungcheon', '여수 웅천', 'jeolla', '여수', '블루홀 느낌의 깊고 푸른 바다, 조류 적어 고요함',
+      34.708, 127.663, false, 5, 25, 10, 'calm', 22, 'intermediate', true, 'verified', 55, null, 0),
+    ('mijo-hang-namhae', '미조항 인근 (남해)', 'gyeongnam', '남해', '근해부터 먼바다까지 다양한 다이빙 포인트',
+      34.756, 128.028, false, 5, 20, 10, 'moderate', 23, 'intermediate', false, 'verified', 60, null, 0)
+  returning id, slug, is_hidden
+)
+select id, slug, is_hidden from s2;
+
 -- 안전 정보 (게이트 예외, 항상 공개)
 insert into spot_safety_info (spot_id, emergency_contacts, current_warning)
 select id,

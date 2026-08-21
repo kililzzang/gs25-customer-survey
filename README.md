@@ -50,12 +50,41 @@ npm run dev
 4. `0004_leaderboard_and_storage.sql` — 제보 승인 시 자동 점수 적립 트리거, 리더보드 집계
    함수, 스토리지 버킷
 5. `0005_spot_reviews.sql` — 스팟 후기(무료 공개)
+6. `0006_handle_new_user.sql` — 신규 가입 시 profiles row 자동 생성 트리거
+7. `0007_spot_metadata_flags.sql` — `coordinates_verified`(좌표 실사 검증 여부, 기본 false),
+   `synthetic_test`(성능 테스트용 더미 여부), `difficulty`, `subregion` 컬럼 추가
 
 로컬 개발 시 시드 데이터:
 
 ```bash
-supabase db reset  # migrations + seed.sql 적용
+supabase db reset  # migrations + seed.sql 적용 (실제 스팟 33곳)
 ```
+
+### 성능/부하 테스트용 더미 데이터
+
+`supabase/seed_synthetic_test_data.sql`은 `supabase db reset`에 포함되지 않는 **별도 파일**입니다.
+UI/리더보드/필터/지도 성능을 테스트할 때만 수동으로 실행하세요:
+
+```bash
+supabase db execute -f supabase/seed_synthetic_test_data.sql
+```
+
+7개 지역에 고르게 분산된 `synthetic_test = true` 더미 스팟 240개(`테스트 스팟 #001`~`#240`)가
+생성됩니다. **실제 서비스 오픈 전 반드시 전량 삭제**하세요:
+
+```sql
+delete from spots where synthetic_test = true;
+```
+
+로컬(Supabase 미연결) 개발 중 이 더미 데이터를 화면에서 보고 싶다면
+`.env.local`에 `NEXT_PUBLIC_INCLUDE_SYNTHETIC_TEST_SPOTS=true`를 설정하세요
+(`lib/mock-data.ts`의 `MOCK_SYNTHETIC_TEST_SPOTS`를 사용, 기본은 꺼져 있음).
+
+### 좌표 정확도 안내
+
+현재 시딩된 모든 스팟의 좌표(`approx_lat`/`approx_lng`)는 지도 기준 추정치이며
+`coordinates_verified = false` 상태입니다. 상세 페이지에도 "좌표 미검증" 안내가 표시됩니다.
+런칭 전 현장 실사로 정확한 좌표를 확인한 뒤 운영자가 해당 컬럼을 `true`로 갱신해야 합니다.
 
 ## 페이지 구조
 

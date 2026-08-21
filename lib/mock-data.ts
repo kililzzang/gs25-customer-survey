@@ -50,6 +50,102 @@ export const MOCK_SPOTS: SpotRow[] = [
   spot("cebu-moalboal", "세부 모알보알 사딘런", "overseas",
     "수백만 마리의 정어리떼로 유명한 스노클링 포인트.",
     9.958, 123.397, 3, 20, 18, "calm", 27, false, "verified", 97, 18, 412),
+
+  // ------------------------------------------------------------------
+  // 실제 스팟 21곳 (2026-08 제보 목록 기반)
+  // ⚠️ 좌표는 실사 측정치가 아닌 지도 기준 추정치입니다 (coordinatesVerified: false).
+  //    런칭 전 반드시 현장 실사로 정확한 좌표를 재확인해야 합니다.
+  // ------------------------------------------------------------------
+
+  // 강원
+  spot("jangho-hang-samcheok", "장호항", "gangwon",
+    "한국의 나폴리, 갯바위가 파도를 막아주는 잔잔한 포인트",
+    37.024, 129.322, 1, 4, 6, "calm", 19, false, "verified", 60, null, 0,
+    { subregion: "삼척", difficulty: "beginner" }),
+  spot("galnam-hang-samcheok", "갈남항", "gangwon",
+    "조용한 어촌마을, 맑은 수질의 숨은 명소",
+    37.011, 129.317, 1, 4, 7, "calm", 19, true, "verified", 60, null, 0,
+    { subregion: "삼척", difficulty: "beginner" }),
+  spot("songjiho-beach-goseong", "송지호해수욕장", "gangwon",
+    "긴 해변, 서낭바위 쪽 스노클링 포인트 형성",
+    38.313, 128.499, 1, 3, 5, "calm", 20, false, "verified", 60, null, 0,
+    { subregion: "고성", difficulty: "beginner" }),
+  spot("hajodae-point-yangyang", "하조대전망대 포인트", "gangwon",
+    "가두리 지형으로 파도 잔잔, 수심 3~5m 균일",
+    38.092, 128.789, 3, 5, 6, "calm", 19, true, "verified", 60, null, 0,
+    { subregion: "양양", difficulty: "beginner" }),
+  spot("namae-3ri-yangyang", "남애3리", "gangwon",
+    "로컬 서퍼들 사이에서 알려진 조용한 포인트",
+    37.995, 128.798, 1, 4, 6, "calm", 19, true, "verified", 60, null, 0,
+    { subregion: "양양", difficulty: "beginner" }),
+  spot("sodol-beach-yangyang", "소돌해변", "gangwon",
+    "작은 규모의 한적한 스노클링 스팟",
+    38.075, 128.628, 1, 3, 5, "calm", 19, true, "verified", 60, null, 0,
+    { subregion: "양양", difficulty: "beginner" }),
+  spot("simgok-hang-gangneung", "심곡항", "gangwon",
+    "7번 국도 옆 빨간 등대 아래 비밀의 포인트",
+    37.729, 128.909, 1, 4, 7, "calm", 18, true, "verified", 60, null, 0,
+    { subregion: "강릉", difficulty: "beginner" }),
+  spot("jajakdo-beach-goseong", "자작도해변", "gangwon",
+    "완만한 긴 해안선, 소나무숲과 청정 동해",
+    38.450, 128.474, 1, 3, 6, "calm", 20, false, "verified", 60, null, 0,
+    { subregion: "고성", difficulty: "beginner" }),
+  spot("panji-hang-goseong", "판지항", "gangwon",
+    "낚시 명소에서 스노클링 명소로 부상, 안전요원 없음 주의",
+    38.466, 128.470, 3, 12, 8, "moderate", 18, true, "verified", 55, null, 0,
+    { subregion: "고성", difficulty: "intermediate" }),
+
+  // 경북
+  spot("nagok-beach-uljin", "나곡해수욕장", "gyeongbuk",
+    "동해 대표 스쿠버·스노클링 지역",
+    36.993, 129.417, 3, 20, 10, "moderate", 19, false, "verified", 60, null, 0,
+    { subregion: "울진", difficulty: "intermediate" }),
+  spot("hujeong-beach-uljin", "후정해수욕장", "gyeongbuk",
+    "울진 다이빙 명소 중 한 곳",
+    36.982, 129.416, 3, 18, 9, "moderate", 19, false, "verified", 60, null, 0,
+    { subregion: "울진", difficulty: "intermediate" }),
+  spot("yangjeong-beach-uljin", "양정해수욕장", "gyeongbuk",
+    "다양한 다이빙 포인트가 밀집한 구역",
+    36.970, 129.415, 3, 15, 9, "moderate", 19, true, "verified", 60, null, 0,
+    { subregion: "울진", difficulty: "intermediate" }),
+  spot("gusan-beach-uljin", "구산해수욕장", "gyeongbuk",
+    "난파선 포인트로도 알려진 해안선",
+    36.960, 129.414, 5, 25, 8, "moderate", 19, true, "verified", 60, null, 0,
+    { subregion: "울진", difficulty: "intermediate" }),
+  spot("hupo-beach-uljin", "후포해수욕장", "gyeongbuk",
+    "울진 대표 다이빙 명소",
+    36.677, 129.453, 3, 18, 10, "moderate", 19, false, "verified", 60, null, 0,
+    { subregion: "울진", difficulty: "intermediate" }),
+  spot("guryongpo-beach-pohang", "구룡포해변", "gyeongbuk",
+    "수심 10~30m, 수중바위와 산호초 관찰 가능",
+    35.988, 129.559, 10, 30, 9, "moderate", 20, false, "verified", 60, null, 0,
+    { subregion: "포항", difficulty: "intermediate" }),
+  spot("gampo-songdaemal-gyeongju", "감포바다 (송대말등대)", "gyeongbuk",
+    "에메랄드빛 해변, 조용한 숨은 명소로 부상 중",
+    35.799, 129.499, 1, 5, 8, "calm", 21, true, "verified", 60, null, 0,
+    { subregion: "경주", difficulty: "beginner" }),
+
+  // 경남/전남
+  spot("oryukdo-busan", "오륙도 인근", "gyeongnam",
+    "도시 속 숨은 다이빙 포인트, 절벽 지형",
+    35.101, 129.111, 5, 20, 8, "moderate", 22, true, "verified", 55, null, 0,
+    { subregion: "부산 남구", difficulty: "intermediate" }),
+  spot("gujora-yundoldo-geoje", "거제 구조라 윤돌섬", "gyeongnam",
+    "카약/제트스키로 접근하는 무인도, 독특한 바위 지형",
+    34.775, 128.700, 3, 15, 9, "moderate", 22, true, "verified", 55, null, 0,
+    { subregion: "거제", difficulty: "intermediate" }),
+  spot("tongyeong-hongdo", "통영 홍도", "gyeongnam",
+    "한려해상국립공원의 보석, 수중동굴과 청정 바다",
+    34.397, 128.221, 5, 20, 12, "moderate", 22, false, "verified", 60, null, 0,
+    { subregion: "통영", difficulty: "intermediate" }),
+  spot("yeosu-ungcheon", "여수 웅천", "jeolla",
+    "블루홀 느낌의 깊고 푸른 바다, 조류 적어 고요함",
+    34.708, 127.663, 5, 25, 10, "calm", 22, true, "verified", 55, null, 0,
+    { subregion: "여수", difficulty: "intermediate" }),
+  spot("mijo-hang-namhae", "미조항 인근 (남해)", "gyeongnam",
+    "근해부터 먼바다까지 다양한 다이빙 포인트",
+    34.756, 128.028, 5, 20, 10, "moderate", 23, false, "verified", 60, null, 0,
+    { subregion: "남해", difficulty: "intermediate" }),
 ];
 
 export const MOCK_SAFETY_INFO: Record<string, SpotSafetyInfoRow> = Object.fromEntries(
@@ -207,7 +303,14 @@ function spot(
   status: SpotRow["status"],
   trust_score: number,
   verifiedDaysAgo: number | null,
-  like_count: number
+  like_count: number,
+  opts: {
+    subregion?: string;
+    /** 좌표 실사 검증 여부. 미지정 시 false(미검증) — 지금까지의 시드 좌표는 전부 추정치입니다. */
+    coordinatesVerified?: boolean;
+    difficulty?: SpotRow["difficulty"];
+    syntheticTest?: boolean;
+  } = {}
 ): SpotRow {
   const now = Date.now();
   const iso = (daysAgo: number | null) =>
@@ -217,20 +320,24 @@ function spot(
     slug,
     name,
     region,
+    subregion: opts.subregion ?? null,
     description,
     approx_lat,
     approx_lng,
+    coordinates_verified: opts.coordinatesVerified ?? false,
     depth_min_m,
     depth_max_m,
     visibility_m,
     current_level,
     water_temp_c,
+    difficulty: opts.difficulty ?? null,
     is_hidden,
     status,
     trust_score,
     last_verified_at: iso(verifiedDaysAgo),
     like_count,
     first_reporter_id: null,
+    synthetic_test: opts.syntheticTest ?? false,
     created_at: iso(verifiedDaysAgo ?? 30)!,
     updated_at: iso(verifiedDaysAgo ?? 30)!,
   };
@@ -256,3 +363,65 @@ function partner(
     created_at: new Date().toISOString(),
   };
 }
+
+// ------------------------------------------------------------------
+// 성능/부하 테스트 전용 더미 데이터 (synthetic_test: true)
+//
+// ⚠️ 실제 장소가 아닙니다. UI/리더보드/필터/지도 성능을 테스트하기 위한
+//    용도로만 사용하세요. MOCK_SPOTS에는 기본 포함하지 않으며,
+//    NEXT_PUBLIC_INCLUDE_SYNTHETIC_TEST_SPOTS=true 환경변수로만 켜집니다
+//    (lib/data.ts 참고). Supabase 쪽 동급 데이터는
+//    supabase/seed_synthetic_test_data.sql 이며, 그 파일 역시
+//    실제 서비스 오픈 전 전량 삭제 대상입니다.
+// ------------------------------------------------------------------
+
+const REGION_CENTERS: { region: SpotRow["region"]; lat: number; lng: number }[] = [
+  { region: "gyeonggi", lat: 37.45, lng: 126.6 },
+  { region: "gangwon", lat: 37.75, lng: 128.9 },
+  { region: "chungcheong", lat: 36.6, lng: 126.3 },
+  { region: "gyeongbuk", lat: 36.4, lng: 129.4 },
+  { region: "gyeongnam", lat: 34.9, lng: 128.4 },
+  { region: "jeolla", lat: 34.6, lng: 127.0 },
+  { region: "jeju", lat: 33.4, lng: 126.5 },
+];
+
+const CURRENT_LEVELS: SpotRow["current_level"][] = ["calm", "moderate", "strong"];
+const DIFFICULTIES: SpotRow["difficulty"][] = ["beginner", "intermediate", "advanced"];
+const STATUSES: SpotRow["status"][] = ["verified", "verified", "verified", "pending", "needs_update"];
+
+function pick<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function generateSyntheticTestSpots(count = 240): SpotRow[] {
+  return Array.from({ length: count }, (_, i) => {
+    const n = i + 1;
+    const label = String(n).padStart(3, "0");
+    const center = REGION_CENTERS[n % REGION_CENTERS.length];
+    const depthMin = 1 + Math.floor(Math.random() * 8);
+    const verifiedDaysAgo = Math.random() < 0.7 ? Math.floor(Math.random() * 180) : null;
+
+    return spot(
+      `test-spot-${label}`,
+      `테스트 스팟 #${label}`,
+      center.region,
+      "성능/부하 테스트용 자동 생성 더미 스팟입니다. 실제 장소가 아니며, 서비스 오픈 전 전량 삭제 대상입니다.",
+      center.lat + (Math.random() - 0.5) * 0.6,
+      center.lng + (Math.random() - 0.5) * 0.6,
+      depthMin,
+      depthMin + 3 + Math.floor(Math.random() * 22),
+      Math.round((2 + Math.random() * 18) * 10) / 10,
+      pick(CURRENT_LEVELS),
+      Math.round((12 + Math.random() * 16) * 10) / 10,
+      Math.random() < 0.15,
+      pick(STATUSES),
+      Math.round(20 + Math.random() * 79),
+      verifiedDaysAgo,
+      Math.floor(Math.random() * 300),
+      { subregion: "자동생성", difficulty: pick(DIFFICULTIES), syntheticTest: true }
+    );
+  });
+}
+
+/** 240개 합성 테스트 스팟. 기본적으로는 아무 곳에서도 import되지 않습니다 — 필요할 때만 사용하세요. */
+export const MOCK_SYNTHETIC_TEST_SPOTS: SpotRow[] = generateSyntheticTestSpots();
