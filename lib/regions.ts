@@ -51,3 +51,15 @@ export const SPOT_STATUS_LABEL: Record<string, string> = {
   hidden: "비공개",
   rejected: "반려",
 };
+
+export const CROWD_TAG_LABEL: Record<string, string> = {
+  quiet: "한적함",
+  moderate: "적당함",
+  crowded: "붐빔",
+};
+
+export const DIFFICULTY_LABEL: Record<string, string> = {
+  beginner: "초급",
+  intermediate: "중급",
+  advanced: "고급",
+};

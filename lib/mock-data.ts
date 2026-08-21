@@ -2,6 +2,9 @@ import type {
   SpotRow,
   SpotSafetyInfoRow,
   SpotLockedInfoRow,
+  SpotAccessStepRow,
+  SpotParkingOptionRow,
+  SpotEmergencyFacilityRow,
   PartnerListingRow,
   BadgeRow,
   SpotReviewRow,
@@ -174,11 +177,144 @@ export const MOCK_LOCKED_INFO: Record<string, SpotLockedInfoRow> = Object.fromEn
       exact_lng: s.approx_lng - 0.0005,
       access_route: "해안도로에서 도보 8분, 방파제 끝 계단으로 진입",
       parking_tip: "인근 공영주차장 이용 (성수기 만차 잦음, 07시 이전 도착 권장)",
+      estimated_walk_minutes: 8,
+      has_restroom: true,
+      has_shower: false,
       contributor_id: null,
       updated_at: s.updated_at,
     },
   ])
 );
+
+// ------------------------------------------------------------------
+// "정확한 위치와 접근 방법" 1단계 — 스텝 카드 / 주차 옵션 / 응급시설
+// 대표 스팟 위주로 시딩. 나머지 스팟은 빈 배열(정보 없음 상태)로 자연스럽게 처리됩니다.
+// ------------------------------------------------------------------
+
+let stepIdCounter = 0;
+
+function step(
+  spotSlug: string,
+  step_order: number,
+  title: string,
+  description: string,
+  terrain_type: SpotAccessStepRow["terrain_type"],
+  photo_storage_path: string | null = null
+): SpotAccessStepRow {
+  const s = MOCK_SPOTS.find((sp) => sp.slug === spotSlug);
+  stepIdCounter += 1;
+  return {
+    id: `${spotSlug}-step-${stepIdCounter}`,
+    spot_id: s?.id ?? spotSlug,
+    step_order,
+    title,
+    description,
+    photo_storage_path,
+    lat: s ? s.approx_lat + step_order * 0.0002 : null,
+    lng: s ? s.approx_lng - step_order * 0.0002 : null,
+    terrain_type,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+let parkingIdCounter = 0;
+
+function parking(
+  spotSlug: string,
+  label: string,
+  parking_type: SpotParkingOptionRow["parking_type"],
+  is_primary: boolean,
+  note: string | null
+): SpotParkingOptionRow {
+  const s = MOCK_SPOTS.find((sp) => sp.slug === spotSlug);
+  parkingIdCounter += 1;
+  return {
+    id: `${spotSlug}-parking-${parkingIdCounter}`,
+    spot_id: s?.id ?? spotSlug,
+    label,
+    parking_type,
+    lat: s ? s.approx_lat + 0.001 : null,
+    lng: s ? s.approx_lng + 0.001 : null,
+    note,
+    is_primary,
+    created_at: new Date().toISOString(),
+  };
+}
+
+let facilityIdCounter = 0;
+
+function facility(
+  spotSlug: string,
+  name: string,
+  phone: string,
+  facility_type: SpotEmergencyFacilityRow["facility_type"],
+  distance_km: number
+): SpotEmergencyFacilityRow {
+  const s = MOCK_SPOTS.find((sp) => sp.slug === spotSlug);
+  facilityIdCounter += 1;
+  return {
+    id: `${spotSlug}-facility-${facilityIdCounter}`,
+    spot_id: s?.id ?? spotSlug,
+    name,
+    phone,
+    facility_type,
+    distance_km,
+    lat: null,
+    lng: null,
+    created_at: new Date().toISOString(),
+  };
+}
+
+export const MOCK_ACCESS_STEPS: Record<string, SpotAccessStepRow[]> = {
+  "munseom-jeju": [
+    step("munseom-jeju", 1, "새섬 주차장 도착", "공영주차장에 주차 후 도보 시작", "flat"),
+    step("munseom-jeju", 2, "산책로 300m 이동", "새섬 연결다리 방향 평탄한 산책로", "flat"),
+    step("munseom-jeju", 3, "계단 40m 하강", "방파제 옆 계단으로 하강, 미끄럼 주의", "stairs"),
+    step("munseom-jeju", 4, "우측 진입", "표지판 지나 우측 바위 진입로로 입수", "rock"),
+  ],
+  "hyeopjae-jeju": [
+    step("hyeopjae-jeju", 1, "협재해수욕장 주차장 도착", "해변 바로 앞 주차장", "flat"),
+    step("hyeopjae-jeju", 2, "백사장 진입", "완만한 백사장으로 바로 입수 가능", "sand"),
+  ],
+  "gapado-hidden": [
+    step("gapado-hidden", 1, "가파도 선착장 도착", "운진항에서 도선 이용 (사전 예약 필요)", "flat"),
+    step("gapado-hidden", 2, "해안 산책로 500m", "청보리밭 옆 산책로를 따라 이동", "flat"),
+    step("gapado-hidden", 3, "암반 지대 진입", "돌출된 암반을 조심히 넘어 진입", "rock"),
+  ],
+  "jangho-hang-samcheok": [
+    step("jangho-hang-samcheok", 1, "장호항 공영주차장", "항구 초입 무료 공영주차장", "flat"),
+    step("jangho-hang-samcheok", 2, "갯바위 방향 도보 5분", "해안 데크길을 따라 이동", "flat"),
+    step("jangho-hang-samcheok", 3, "계단 20m 하강 후 진입", "갯바위 계단으로 내려가 진입", "stairs"),
+  ],
+  "guryongpo-beach-pohang": [
+    step("guryongpo-beach-pohang", 1, "구룡포해변 주차장", "해변 인접 유료 주차장", "flat"),
+    step("guryongpo-beach-pohang", 2, "방파제 끝까지 이동", "방파제를 따라 끝까지 도보 이동", "flat"),
+    step("guryongpo-beach-pohang", 3, "수중바위 지대 진입", "너울 있는 날은 진입 자제 권장", "rock"),
+  ],
+};
+
+export const MOCK_PARKING_OPTIONS: Record<string, SpotParkingOptionRow[]> = {
+  "munseom-jeju": [
+    parking("munseom-jeju", "새섬 공영주차장", "free", true, "성수기 만차 잦음, 07시 이전 권장"),
+    parking("munseom-jeju", "서귀포항 대형 주차장", "paid", false, "도보 12분, 만차 시 대안"),
+  ],
+  "hyeopjae-jeju": [parking("hyeopjae-jeju", "협재해수욕장 공영주차장", "paid", true, "성수기 혼잡")],
+  "gapado-hidden": [parking("gapado-hidden", "운진항 주차장 (본섬)", "free", true, "가파도 내 차량 진입 불가")],
+  "jangho-hang-samcheok": [parking("jangho-hang-samcheok", "장호항 공영주차장", "free", true, null)],
+  "guryongpo-beach-pohang": [
+    parking("guryongpo-beach-pohang", "구룡포해변 주차장", "paid", true, "성수기 회전 빠름"),
+    parking("guryongpo-beach-pohang", "구룡포항 갓길 주차", "free", false, "성수기에만 대안으로 이용"),
+  ],
+};
+
+export const MOCK_EMERGENCY_FACILITIES: Record<string, SpotEmergencyFacilityRow[]> = {
+  "munseom-jeju": [facility("munseom-jeju", "서귀포의료원", "064-730-3000", "hospital", 3.8)],
+  "hyeopjae-jeju": [facility("hyeopjae-jeju", "한림공공보건의료센터", "064-796-7575", "health_center", 4.1)],
+  "gapado-hidden": [facility("gapado-hidden", "대정보건지소 가파출장소", "064-760-4141", "health_center", 1.2)],
+  "jangho-hang-samcheok": [facility("jangho-hang-samcheok", "삼척의료원", "033-570-9241", "hospital", 12.5)],
+  "guryongpo-beach-pohang": [facility("guryongpo-beach-pohang", "포항의료원", "054-289-7000", "hospital", 9.2)],
+};
 
 export const MOCK_PARTNER_LISTINGS: PartnerListingRow[] = [
   partner("munseom-jeju", "물빛 파트너 다이브샵", "rental", "장비 대여 예약"),
@@ -193,11 +329,13 @@ export const MOCK_REVIEWS: Record<string, SpotReviewRow[]> = {
     {
       id: "r1", spot_id: "munseom-jeju", user_id: "u1", username: "aqua_min",
       rating: 5, body: "연산호가 정말 예뻐요. 오전에 가면 시야가 훨씬 좋습니다.",
+      crowd_tag: "moderate",
       visited_at: "2026-07-12", created_at: iso(15),
     },
     {
       id: "r2", spot_id: "munseom-jeju", user_id: "u2", username: "seabreeze",
       rating: 4, body: "조류가 조금 있는 편이라 초보자는 가이드 동반 추천.",
+      crowd_tag: "crowded",
       visited_at: "2026-06-30", created_at: iso(30),
     },
   ],
@@ -205,6 +343,7 @@ export const MOCK_REVIEWS: Record<string, SpotReviewRow[]> = {
     {
       id: "r3", spot_id: "hyeopjae-jeju", user_id: "u3", username: "finfollower",
       rating: 5, body: "아이랑 같이 가기 좋아요. 수심이 얕고 안전합니다.",
+      crowd_tag: "crowded",
       visited_at: "2026-08-01", created_at: iso(5),
     },
   ],
@@ -212,6 +351,7 @@ export const MOCK_REVIEWS: Record<string, SpotReviewRow[]> = {
     {
       id: "r4", spot_id: "gapado-hidden", user_id: "u4", username: "hidden_seeker",
       rating: 5, body: "사람이 거의 없어서 조용히 즐기기 좋았어요. 접근로가 헷갈리니 상세정보 꼭 확인하세요.",
+      crowd_tag: "quiet",
       visited_at: "2026-07-20", created_at: iso(10),
     },
   ],
@@ -338,6 +478,7 @@ function spot(
     like_count,
     first_reporter_id: null,
     synthetic_test: opts.syntheticTest ?? false,
+    unlock_condition_override: null,
     created_at: iso(verifiedDaysAgo ?? 30)!,
     updated_at: iso(verifiedDaysAgo ?? 30)!,
   };

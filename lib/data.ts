@@ -4,6 +4,9 @@ import {
   MOCK_SYNTHETIC_TEST_SPOTS,
   MOCK_SAFETY_INFO,
   MOCK_LOCKED_INFO,
+  MOCK_ACCESS_STEPS,
+  MOCK_PARKING_OPTIONS,
+  MOCK_EMERGENCY_FACILITIES,
   MOCK_PARTNER_LISTINGS,
   MOCK_LEADERBOARD_GENERAL,
   MOCK_LEADERBOARD_CORE,
@@ -17,6 +20,9 @@ import type {
   SpotRow,
   SpotSafetyInfoRow,
   SpotLockedInfoRow,
+  SpotAccessStepRow,
+  SpotParkingOptionRow,
+  SpotEmergencyFacilityRow,
   PartnerListingRow,
   SpotReviewRow,
   RegionCode,
@@ -118,22 +124,30 @@ export async function getSpotBySlug(slug: string): Promise<{
 }
 
 /**
- * 잠금 정보(정확한 좌표/접근로/주차팁) 조회.
- * 실 서비스에서는 supabase.rpc('unlock_spot_details', { p_spot_id }) 로 호출하며,
- * 광고 시청 완료(ad_unlocks) 또는 프리미엄 멤버십이 아니면 서버에서 예외를 반환합니다.
+ * 잠금 정보(정확한 좌표/접근로/주차팁/소요시간/화장실·샤워실 유무) 조회.
+ *
+ * 열람 조건은 unlock_condition (기본 'login')을 따르며, 실제 판정은 서버에서
+ * can_unlock_spot_details()/unlock_spot_details RPC가 담당합니다 — 여기서는
+ * 그 결과를 그대로 전달할 뿐, 클라이언트가 "unlocked" 여부를 임의로 넘길 수 없습니다
+ * (과거 { unlocked: boolean } 파라미터 방식은 잠금정보를 비로그인 상태에서도
+ *  서버 렌더링 페이로드에 그대로 실어버리는 구멍이 있어 제거했습니다).
+ *
+ * 목업 모드(Supabase 미연결)에서는 로컬 개발/데모 편의를 위해 로그인 여부와
+ * 무관하게 항상 반환합니다 — 실 서비스 보안은 아래 Supabase 분기에서 강제됩니다.
  */
-export async function getSpotLockedInfo(
-  slug: string,
-  opts: { unlocked: boolean }
-): Promise<SpotLockedInfoRow | null> {
-  if (!opts.unlocked) return null;
-
+export async function getSpotLockedInfo(slug: string): Promise<SpotLockedInfoRow | null> {
   const supabase = await createClient();
+
   if (!supabase) {
     return MOCK_LOCKED_INFO[slug] ?? null;
   }
 
-  const spot = MOCK_SPOTS.find((s) => s.slug === slug);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: spot } = await supabase.from("spots").select("id").eq("slug", slug).single();
   if (!spot) return null;
 
   const { data, error } = await supabase.rpc("unlock_spot_details", { p_spot_id: spot.id });
@@ -149,7 +163,70 @@ export async function getSpotLockedInfo(
     exact_lng: row.exact_lng,
     access_route: row.access_route,
     parking_tip: row.parking_tip,
+    estimated_walk_minutes: row.estimated_walk_minutes,
+    has_restroom: row.has_restroom,
+    has_shower: row.has_shower,
   };
+}
+
+/**
+ * 단계별 접근 스텝 카드. 실 서비스에서는 spot_access_steps RLS
+ * (can_unlock_spot_details)가 로그인하지 않은 유저에게 빈 배열을 돌려줍니다.
+ */
+export async function getSpotAccessSteps(spotId: string, slug: string): Promise<SpotAccessStepRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_ACCESS_STEPS[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_access_steps")
+    .select("*")
+    .eq("spot_id", spotId)
+    .order("step_order", { ascending: true });
+
+  if (error || !data) return [];
+  return data;
+}
+
+/** 주차 옵션 (무료/유료, 메인/대안). spot_access_steps와 동일한 로그인 게이트 적용. */
+export async function getSpotParkingOptions(
+  spotId: string,
+  slug: string
+): Promise<SpotParkingOptionRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_PARKING_OPTIONS[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_parking_options")
+    .select("*")
+    .eq("spot_id", spotId)
+    .order("is_primary", { ascending: false });
+
+  if (error || !data) return [];
+  return data;
+}
+
+/** 최인접 응급실/보건소. 안전 정보라 게이트 예외 — 항상 공개 조회. */
+export async function getSpotEmergencyFacilities(
+  spotId: string,
+  slug: string
+): Promise<SpotEmergencyFacilityRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_EMERGENCY_FACILITIES[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_emergency_facilities")
+    .select("*")
+    .eq("spot_id", spotId)
+    .order("distance_km", { ascending: true });
+
+  if (error || !data) return [];
+  return data;
 }
 
 export async function getSpotReviews(slug: string, spotId: string): Promise<SpotReviewRow[]> {

@@ -114,13 +114,70 @@ select id,
   case when is_hidden then '히든 스팟은 구조 접근이 어려울 수 있으니 반드시 2인 이상 동행하세요.' else null end
 from spots;
 
--- 잠금 정보 (광고 게이트 뒤 노출)
-insert into spot_locked_info (spot_id, exact_lat, exact_lng, access_route, parking_tip)
+-- 잠금 정보 (로그인 게이트 뒤 노출, supabase/migrations/0008_unlock_condition_gate.sql)
+insert into spot_locked_info (
+  spot_id, exact_lat, exact_lng, access_route, parking_tip,
+  estimated_walk_minutes, has_restroom, has_shower
+)
 select id,
   approx_lat + 0.0007, approx_lng - 0.0005,
   '해안도로에서 도보 8분, 방파제 끝 계단으로 진입',
-  '인근 공영주차장 이용 (성수기 만차 잦음, 07시 이전 도착 권장)'
+  '인근 공영주차장 이용 (성수기 만차 잦음, 07시 이전 도착 권장)',
+  8, true, false
 from spots;
+
+-- ------------------------------------------------------------------
+-- "정확한 위치와 접근 방법" 1단계 — 대표 스팟 5곳에 스텝/주차/응급시설 시딩
+-- 나머지 스팟은 빈 상태("아직 등록된 정보가 없습니다")로 자연스럽게 처리됩니다.
+-- ------------------------------------------------------------------
+
+insert into spot_access_steps (spot_id, step_order, title, description, lat, lng, terrain_type)
+select s.id, v.step_order, v.title, v.description,
+  s.approx_lat + v.step_order * 0.0002, s.approx_lng - v.step_order * 0.0002, v.terrain_type::terrain_type
+from spots s
+join (values
+  ('munseom-jeju', 1, '새섬 주차장 도착', '공영주차장에 주차 후 도보 시작', 'flat'),
+  ('munseom-jeju', 2, '산책로 300m 이동', '새섬 연결다리 방향 평탄한 산책로', 'flat'),
+  ('munseom-jeju', 3, '계단 40m 하강', '방파제 옆 계단으로 하강, 미끄럼 주의', 'stairs'),
+  ('munseom-jeju', 4, '우측 진입', '표지판 지나 우측 바위 진입로로 입수', 'rock'),
+  ('hyeopjae-jeju', 1, '협재해수욕장 주차장 도착', '해변 바로 앞 주차장', 'flat'),
+  ('hyeopjae-jeju', 2, '백사장 진입', '완만한 백사장으로 바로 입수 가능', 'sand'),
+  ('gapado-hidden', 1, '가파도 선착장 도착', '운진항에서 도선 이용 (사전 예약 필요)', 'flat'),
+  ('gapado-hidden', 2, '해안 산책로 500m', '청보리밭 옆 산책로를 따라 이동', 'flat'),
+  ('gapado-hidden', 3, '암반 지대 진입', '돌출된 암반을 조심히 넘어 진입', 'rock'),
+  ('jangho-hang-samcheok', 1, '장호항 공영주차장', '항구 초입 무료 공영주차장', 'flat'),
+  ('jangho-hang-samcheok', 2, '갯바위 방향 도보 5분', '해안 데크길을 따라 이동', 'flat'),
+  ('jangho-hang-samcheok', 3, '계단 20m 하강 후 진입', '갯바위 계단으로 내려가 진입', 'stairs'),
+  ('guryongpo-beach-pohang', 1, '구룡포해변 주차장', '해변 인접 유료 주차장', 'flat'),
+  ('guryongpo-beach-pohang', 2, '방파제 끝까지 이동', '방파제를 따라 끝까지 도보 이동', 'flat'),
+  ('guryongpo-beach-pohang', 3, '수중바위 지대 진입', '너울 있는 날은 진입 자제 권장', 'rock')
+) as v(slug, step_order, title, description, terrain_type) on v.slug = s.slug;
+
+insert into spot_parking_options (spot_id, label, parking_type, is_primary, note, lat, lng)
+select s.id, v.label, v.parking_type::parking_type, v.is_primary, v.note,
+  s.approx_lat + 0.001, s.approx_lng + 0.001
+from spots s
+join (values
+  ('munseom-jeju', '새섬 공영주차장', 'free', true, '성수기 만차 잦음, 07시 이전 권장'),
+  ('munseom-jeju', '서귀포항 대형 주차장', 'paid', false, '도보 12분, 만차 시 대안'),
+  ('hyeopjae-jeju', '협재해수욕장 공영주차장', 'paid', true, '성수기 혼잡'),
+  ('gapado-hidden', '운진항 주차장 (본섬)', 'free', true, '가파도 내 차량 진입 불가'),
+  ('jangho-hang-samcheok', '장호항 공영주차장', 'free', true, null),
+  ('guryongpo-beach-pohang', '구룡포해변 주차장', 'paid', true, '성수기 회전 빠름'),
+  ('guryongpo-beach-pohang', '구룡포항 갓길 주차', 'free', false, '성수기에만 대안으로 이용')
+) as v(slug, label, parking_type, is_primary, note) on v.slug = s.slug;
+
+-- 응급시설 (안전 정보, 게이트 예외 — 항상 공개)
+insert into spot_emergency_facilities (spot_id, name, phone, facility_type, distance_km)
+select s.id, v.name, v.phone, v.facility_type::emergency_facility_type, v.distance_km
+from spots s
+join (values
+  ('munseom-jeju', '서귀포의료원', '064-730-3000', 'hospital', 3.8),
+  ('hyeopjae-jeju', '한림공공보건의료센터', '064-796-7575', 'health_center', 4.1),
+  ('gapado-hidden', '대정보건지소 가파출장소', '064-760-4141', 'health_center', 1.2),
+  ('jangho-hang-samcheok', '삼척의료원', '033-570-9241', 'hospital', 12.5),
+  ('guryongpo-beach-pohang', '포항의료원', '054-289-7000', 'hospital', 9.2)
+) as v(slug, name, phone, facility_type, distance_km) on v.slug = s.slug;
 
 -- 업체 제휴 배너 (일부 스팟)
 insert into partner_listings (spot_id, partner_name, listing_type, banner_url, cta_url, cta_label, priority)

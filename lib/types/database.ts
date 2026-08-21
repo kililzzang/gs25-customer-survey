@@ -29,6 +29,11 @@ export type ReportType =
   | "revalidation";
 export type ReportStatus = "pending" | "approved" | "rejected";
 export type LeaderboardTrack = "general" | "core";
+export type UnlockCondition = "login" | "ad" | "ad_or_login" | "premium_only";
+export type TerrainType = "flat" | "stairs" | "rock" | "sand";
+export type ParkingType = "free" | "paid";
+export type CrowdTag = "quiet" | "moderate" | "crowded";
+export type EmergencyFacilityType = "hospital" | "clinic" | "health_center";
 
 export type SpotRow = {
   id: string;
@@ -56,6 +61,8 @@ export type SpotRow = {
   first_reporter_id: string | null;
   /** 성능/부하 테스트용 자동 생성 더미 스팟 여부. 오픈 전 전량 삭제 대상. */
   synthetic_test: boolean;
+  /** 이 스팟만 app_settings.detail_unlock_condition과 다른 조건을 적용. null이면 전역 설정 따름. */
+  unlock_condition_override: UnlockCondition | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,7 +80,57 @@ export type SpotLockedInfoRow = {
   exact_lng: number | null;
   access_route: string | null;
   parking_tip: string | null;
+  estimated_walk_minutes: number | null;
+  has_restroom: boolean | null;
+  has_shower: boolean | null;
   contributor_id: string | null;
+  updated_at: string;
+}
+
+export type SpotAccessStepRow = {
+  id: string;
+  spot_id: string;
+  step_order: number;
+  title: string;
+  description: string | null;
+  photo_storage_path: string | null;
+  lat: number | null;
+  lng: number | null;
+  terrain_type: TerrainType | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SpotParkingOptionRow = {
+  id: string;
+  spot_id: string;
+  label: string;
+  parking_type: ParkingType;
+  lat: number | null;
+  lng: number | null;
+  note: string | null;
+  is_primary: boolean;
+  created_at: string;
+}
+
+export type SpotEmergencyFacilityRow = {
+  id: string;
+  spot_id: string;
+  name: string;
+  phone: string | null;
+  facility_type: EmergencyFacilityType;
+  distance_km: number | null;
+  lat: number | null;
+  lng: number | null;
+  created_at: string;
+}
+
+export type FeatureFlagRow = {
+  key: string;
+  label: string;
+  stage: 1 | 2 | 3;
+  enabled: boolean;
+  description: string | null;
   updated_at: string;
 }
 
@@ -162,6 +219,7 @@ export type SpotReviewRow = {
   username?: string;
   rating: number;
   body: string;
+  crowd_tag: CrowdTag | null;
   visited_at: string | null;
   created_at: string;
 }
@@ -200,6 +258,10 @@ export interface Database {
       badges: TableShape<BadgeRow>;
       challenges: TableShape<ChallengeRow>;
       spot_reviews: TableShape<SpotReviewRow>;
+      spot_access_steps: TableShape<SpotAccessStepRow>;
+      spot_parking_options: TableShape<SpotParkingOptionRow>;
+      spot_emergency_facilities: TableShape<SpotEmergencyFacilityRow>;
+      feature_flags: TableShape<FeatureFlagRow>;
     };
     Views: Record<string, never>;
     Functions: {
@@ -210,6 +272,9 @@ export interface Database {
           exact_lng: number | null;
           access_route: string | null;
           parking_tip: string | null;
+          estimated_walk_minutes: number | null;
+          has_restroom: boolean | null;
+          has_shower: boolean | null;
         }[];
       };
     };

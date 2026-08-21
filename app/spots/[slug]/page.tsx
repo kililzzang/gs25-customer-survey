@@ -1,10 +1,41 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSpotBySlug, getSpotLockedInfo, getSpotReviews } from "@/lib/data";
+import {
+  getSpotBySlug,
+  getSpotLockedInfo,
+  getSpotAccessSteps,
+  getSpotParkingOptions,
+  getSpotEmergencyFacilities,
+  getSpotReviews,
+} from "@/lib/data";
+import { getCurrentUser } from "@/lib/auth";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import { GaugeBar } from "@/components/gauge-bar";
 import { HiddenBadge } from "@/components/hidden-badge";
-import { AdGate } from "@/components/ad-gate";
-import { CURRENT_LEVEL_LABEL, SPOT_STATUS_LABEL, getRegionMeta } from "@/lib/regions";
+import { DetailUnlockGate } from "@/components/detail-unlock-gate";
+import { KakaoMap } from "@/components/kakao-map";
+import { KakaoRoadview } from "@/components/kakao-roadview";
+import { AccessSteps } from "@/components/access-steps";
+import { ParkingOptions } from "@/components/parking-options";
+import { EmergencyFacilities } from "@/components/emergency-facilities";
+import { SosButton } from "@/components/sos-button";
+import {
+  CURRENT_LEVEL_LABEL,
+  SPOT_STATUS_LABEL,
+  CROWD_TAG_LABEL,
+  getRegionMeta,
+} from "@/lib/regions";
+
+const STAGE1_FLAGS = [
+  "map_pin_route_polyline",
+  "kakao_roadview",
+  "access_step_cards",
+  "parking_options_detail",
+  "estimated_walk_time",
+  "restroom_shower_markers",
+  "nearest_emergency_facilities",
+  "sos_button",
+] as const;
 
 export default async function SpotDetailPage({
   params,
@@ -15,19 +46,37 @@ export default async function SpotDetailPage({
   const { spot, safety, partners } = await getSpotBySlug(slug);
   if (!spot) notFound();
 
-  // 목업 단계: 항상 잠금정보를 조회해 AdGate에 넘기고, 실제 노출 여부는 클라이언트(AdGate)가
-  // 광고 시청/멤버십 상태에 따라 결정합니다. 실 서비스에서는 인증된 요청마다
-  // unlock_spot_details RPC가 ad_unlocks/멤버십을 서버에서 검증한 뒤에만 값을 반환합니다.
-  const [lockedInfo, reviews] = await Promise.all([
-    getSpotLockedInfo(slug, { unlocked: true }),
-    getSpotReviews(slug, spot.id),
-  ]);
+  const [user, lockedInfo, accessSteps, parkingOptions, emergencyFacilities, reviews, flags] =
+    await Promise.all([
+      getCurrentUser(),
+      getSpotLockedInfo(slug),
+      getSpotAccessSteps(spot.id, slug),
+      getSpotParkingOptions(spot.id, slug),
+      getSpotEmergencyFacilities(spot.id, slug),
+      getSpotReviews(slug, spot.id),
+      getFeatureFlags(STAGE1_FLAGS),
+    ]);
 
+  const isLoggedIn = !!user;
+  const hasUnlockedContent = !!lockedInfo;
+  // 목업 모드에서는 데모 편의를 위해 lockedInfo/accessSteps/parkingOptions를
+  // 로그인 여부와 무관하게 항상 채워 반환합니다 (lib/data.ts 참고) — 그래서
+  // 실제로 클라이언트에 노출할지는 반드시 isLoggedIn까지 함께 확인합니다.
+  const unlocked = isLoggedIn && hasUnlockedContent;
   const regionMeta = getRegionMeta(spot.region);
   const avgRating =
     reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : null;
+
+  // 카카오맵(클라이언트 컴포넌트) 프롭으로 넘길 좌표만 최소 형태로 추출합니다.
+  // (제목/설명 등 나머지 필드까지 통째로 넘기면 불필요하게 클라이언트 페이로드에 실립니다)
+  const routeStepPoints = accessSteps
+    .filter((s): s is typeof s & { lat: number; lng: number } => s.lat != null && s.lng != null)
+    .map((s) => ({ lat: s.lat, lng: s.lng }));
+  const parkingMapPins = parkingOptions
+    .filter((p): p is typeof p & { lat: number; lng: number } => p.lat != null && p.lng != null)
+    .map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, type: p.parking_type }));
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
@@ -106,12 +155,28 @@ export default async function SpotDetailPage({
         </div>
       </section>
 
+      {/* 지도 — 대략 위치는 항상 공개, 정확한 핀/경로는 로그인 후 */}
+      {flags.map_pin_route_polyline && (
+        <section className="mt-6">
+          <KakaoMap
+            approxCenter={{ lat: spot.approx_lat, lng: spot.approx_lng }}
+            exactPin={
+              unlocked && lockedInfo?.exact_lat != null && lockedInfo?.exact_lng != null
+                ? { lat: lockedInfo.exact_lat, lng: lockedInfo.exact_lng }
+                : null
+            }
+            routeSteps={unlocked ? routeStepPoints : []}
+            parkingPins={unlocked ? parkingMapPins : []}
+          />
+        </section>
+      )}
+
       {/* 안전 정보 — 게이트 예외, 항상 무료 공개 */}
       {safety && (
         <section className="mt-6 rounded-xl border border-coral/30 bg-coral/5 p-6">
           <h2 className="font-serif text-lg text-coral">안전 정보</h2>
           <p className="mt-1 text-[11px] uppercase tracking-wider text-coral/70">
-            항상 무료 공개 · 광고 게이트 예외
+            항상 무료 공개 · 로그인 게이트 예외
           </p>
           {safety.current_warning && (
             <p className="mt-3 text-sm text-sand/80">⚠ {safety.current_warning}</p>
@@ -123,12 +188,83 @@ export default async function SpotDetailPage({
               </li>
             ))}
           </ul>
+          {flags.nearest_emergency_facilities && (
+            <EmergencyFacilities facilities={emergencyFacilities} />
+          )}
         </section>
       )}
 
-      {/* 잠금 정보 — 광고 게이트 */}
-      <section className="mt-6">
-        <AdGate spotId={spot.id} lockedInfo={lockedInfo} />
+      {flags.sos_button && (
+        <section className="mt-4">
+          <SosButton spotName={spot.name} />
+        </section>
+      )}
+
+      {/* 정확한 위치와 접근 방법 — 로그인 게이트 */}
+      <section className="mt-6 space-y-4">
+        <DetailUnlockGate isLoggedIn={isLoggedIn} hasContent={hasUnlockedContent} spotSlug={spot.slug}>
+          {() => (
+          <>
+          <div className="rounded-xl border border-foam/25 bg-teal/20 p-5">
+            <h3 className="font-serif text-lg text-foam">상세 접근 정보</h3>
+            {lockedInfo && (
+              <dl className="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-sand/50">정확한 좌표</dt>
+                  <dd className="font-mono text-sand">
+                    {lockedInfo.exact_lat?.toFixed(5)}, {lockedInfo.exact_lng?.toFixed(5)}
+                  </dd>
+                </div>
+                {lockedInfo.access_route && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-sand/50">접근 경로</dt>
+                    <dd className="text-sand/80">{lockedInfo.access_route}</dd>
+                  </div>
+                )}
+                {lockedInfo.parking_tip && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-sand/50">주차 팁</dt>
+                    <dd className="text-sand/80">{lockedInfo.parking_tip}</dd>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-4 pt-1 text-xs text-sand/60">
+                  {flags.estimated_walk_time && lockedInfo.estimated_walk_minutes != null && (
+                    <span>🚶 도보 약 {lockedInfo.estimated_walk_minutes}분</span>
+                  )}
+                  {flags.restroom_shower_markers && (
+                    <>
+                      <span>🚻 화장실 {lockedInfo.has_restroom ? "있음" : "없음"}</span>
+                      <span>🚿 샤워실 {lockedInfo.has_shower ? "있음" : "없음"}</span>
+                    </>
+                  )}
+                </div>
+              </dl>
+            )}
+          </div>
+
+          {flags.kakao_roadview && lockedInfo?.exact_lat != null && lockedInfo?.exact_lng != null && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">진입로 로드뷰</p>
+              <KakaoRoadview lat={lockedInfo.exact_lat} lng={lockedInfo.exact_lng} />
+            </div>
+          )}
+
+          {flags.access_step_cards && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">단계별 접근 안내</p>
+              <AccessSteps steps={accessSteps} />
+            </div>
+          )}
+
+          {flags.parking_options_detail && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">주차 옵션</p>
+              <ParkingOptions options={parkingOptions} />
+            </div>
+          )}
+          </>
+          )}
+        </DetailUnlockGate>
       </section>
 
       {/* 제휴 배너 */}
@@ -173,11 +309,16 @@ export default async function SpotDetailPage({
                   <span className="font-mono text-foam/80">{"★".repeat(r.rating)}</span>
                 </div>
                 <p className="mt-2 text-sm text-sand/70">{r.body}</p>
-                {r.visited_at && (
-                  <p className="mt-2 text-[11px] text-sand/30">
-                    방문일 {new Date(r.visited_at).toLocaleDateString("ko-KR")}
-                  </p>
-                )}
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-sand/30">
+                  {r.crowd_tag && (
+                    <span className="rounded-full border border-foam/20 px-2 py-0.5 text-foam/60">
+                      {CROWD_TAG_LABEL[r.crowd_tag]}
+                    </span>
+                  )}
+                  {r.visited_at && (
+                    <span>방문일 {new Date(r.visited_at).toLocaleDateString("ko-KR")}</span>
+                  )}
+                </div>
               </div>
             ))
           )}

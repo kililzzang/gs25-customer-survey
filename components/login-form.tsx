@@ -5,9 +5,11 @@ import { createClient } from "@/lib/supabase/client";
 
 type Status = "idle" | "sending" | "sent" | "error" | "unconfigured";
 
-export function LoginForm() {
+export function LoginForm({ next }: { next?: string }) {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
+
+  const nextQuery = next ? `?next=${encodeURIComponent(next)}` : "";
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +22,7 @@ export function LoginForm() {
     setStatus("sending");
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/confirm` },
+      options: { emailRedirectTo: `${window.location.origin}/auth/confirm${nextQuery}` },
     });
     setStatus(error ? "error" : "sent");
   }
@@ -33,7 +35,7 @@ export function LoginForm() {
     }
     await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: `${window.location.origin}/auth/callback${nextQuery}` },
     });
   }
 

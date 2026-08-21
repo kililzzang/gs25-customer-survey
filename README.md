@@ -53,6 +53,27 @@ npm run dev
 6. `0006_handle_new_user.sql` — 신규 가입 시 profiles row 자동 생성 트리거
 7. `0007_spot_metadata_flags.sql` — `coordinates_verified`(좌표 실사 검증 여부, 기본 false),
    `synthetic_test`(성능 테스트용 더미 여부), `difficulty`, `subregion` 컬럼 추가
+8. `0008_unlock_condition_gate.sql` — `unlock_condition` enum, `app_settings` 싱글턴,
+   `can_unlock_spot_details()`, `unlock_spot_details` RPC를 로그인 게이트 기준으로 재작성
+9. `0009_access_and_facilities.sql` — "정확한 위치와 접근 방법" 1단계: `spot_access_steps`
+   (단계별 접근 카드), `spot_parking_options`(무료/유료 주차), `spot_emergency_facilities`
+   (최인접 응급실/보건소, 게이트 예외), `spot_locked_info` 확장(소요시간/화장실/샤워실),
+   `spot_reviews.crowd_tag`(혼잡도 태그)
+10. `0010_feature_flags.sql` — 스팟 상세 로드맵 1~3단계 30개 기능 on/off 스위치
+    (`feature_flags` 테이블, 1단계만 기본 활성화)
+
+### 정확한 위치와 접근 방법 (스팟 상세 로드맵)
+
+상세 위치/접근 정보(정확한 좌표, 접근 스텝, 주차 옵션)는 **로그인 게이트**를 적용합니다
+(광고 SDK는 아직 붙이지 않음). `app_settings.detail_unlock_condition`을
+`'ad' | 'ad_or_login' | 'premium_only'`로 바꾸면 배포 없이 다른 조건으로 전환됩니다.
+안전 정보(응급연락처/조류경고/최인접 응급실/SOS 버튼)는 게이트 예외로 항상 무료 공개입니다.
+
+30개 기능(1~3단계)은 `feature_flags` 테이블로 관리하며, 현재는 1단계만 활성화되어
+있습니다. `lib/feature-flags.ts`의 `FEATURE_FLAG_DEFAULTS`가 Supabase 미연결 시 폴백값입니다.
+
+카카오맵/로드뷰는 `NEXT_PUBLIC_KAKAO_MAP_APP_KEY`가 없으면 "API 키가 설정되지
+않았습니다" 안내만 표시하고 조용히 비활성화됩니다.
 
 로컬 개발 시 시드 데이터:
 
