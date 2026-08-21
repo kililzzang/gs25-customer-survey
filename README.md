@@ -69,8 +69,27 @@ supabase db reset  # migrations + seed.sql 적용
 /profile/[username]        방문 스탬프, 뱃지, 칭호, 제보 이력
 /membership                프리미엄 멤버십
 /challenges                챌린지 이벤트
-/login                     Supabase Auth (예정)
+/login                     Supabase Auth (이메일 매직링크 / Google OAuth)
 ```
+
+## 인증 (Supabase Auth)
+
+이메일 매직링크(OTP) 로그인과 Google OAuth를 지원합니다.
+
+- `proxy.ts` — Next.js 16부터 `middleware.ts`가 `proxy.ts`로 개명되었습니다. 요청마다
+  Supabase 세션 쿠키를 갱신합니다 (`lib/supabase/proxy.ts`).
+- `app/auth/confirm/route.ts` — 매직링크 클릭 시 `token_hash`를 검증하고 세션을 생성합니다.
+- `app/auth/callback/route.ts` — Google OAuth 콜백에서 `code`를 세션으로 교환합니다(PKCE).
+- `app/auth/signout/route.ts` — 로그아웃.
+- `supabase/migrations/0006_handle_new_user.sql` — `auth.users`에 신규 유저가 생성되면
+  트리거로 `profiles` row를 자동 생성합니다(이메일/OAuth 메타데이터로 username 추출).
+
+Supabase 대시보드에서 필요한 설정:
+
+1. Authentication → URL Configuration에 Redirect URLs로
+   `http://localhost:3000/auth/confirm`, `http://localhost:3000/auth/callback`
+   (배포 도메인도 동일하게) 등록
+2. Google 로그인을 쓰려면 Authentication → Providers → Google 활성화 후 클라이언트 ID/Secret 등록
 
 ## 배포
 
