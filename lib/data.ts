@@ -7,6 +7,8 @@ import {
   MOCK_ACCESS_STEPS,
   MOCK_PARKING_OPTIONS,
   MOCK_EMERGENCY_FACILITIES,
+  MOCK_SPOT_SPECIES,
+  MOCK_ACCESS_STEP_REVISIONS,
   MOCK_PARTNER_LISTINGS,
   MOCK_LEADERBOARD_GENERAL,
   MOCK_LEADERBOARD_CORE,
@@ -23,6 +25,9 @@ import type {
   SpotAccessStepRow,
   SpotParkingOptionRow,
   SpotEmergencyFacilityRow,
+  SpotAccessStepRevisionRow,
+  SpeciesRow,
+  SpeciesFrequency,
   PartnerListingRow,
   SpotReviewRow,
   RegionCode,
@@ -296,4 +301,88 @@ export async function getLeaderboard(
     score: row.score,
     breakdown: row.breakdown ?? {},
   }));
+}
+
+// ------------------------------------------------------------------
+// 2·3단계 — 외부 API 없이 동작하는 기능들
+// ------------------------------------------------------------------
+
+/** 수중 생물 도감 태깅 (feature flag: species_field_guide). 공개 정보, 게이트 없음. */
+export async function getSpotSpecies(
+  spotId: string,
+  slug: string
+): Promise<(SpeciesRow & { frequency: SpeciesFrequency | null })[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_SPOT_SPECIES[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_species")
+    .select("frequency, species:species_id(id, name, scientific_name, category, icon, created_at)")
+    .eq("spot_id", spotId);
+
+  if (error || !data) return [];
+  type Row = { frequency: SpeciesFrequency | null; species: SpeciesRow | null };
+  return (data as unknown as Row[])
+    .filter((r): r is Row & { species: SpeciesRow } => r.species !== null)
+    .map((r) => ({ ...r.species, frequency: r.frequency }));
+}
+
+/** "오늘 여기 있어요" 체크인 현황 (feature flag: live_checkin_crowd_count). 카운트는 공개. */
+export async function getSpotCheckinInfo(
+  spotId: string,
+  slug: string
+): Promise<{ activeCount: number; isCheckedIn: boolean }> {
+  const supabase = await createClient();
+
+  if (!supabase) {
+    // 목업 모드: 실 체크인이 없으니 스팟 좋아요 수를 기반으로 그럴듯한 값만 보여줍니다.
+    const spot = MOCK_SPOTS.find((s) => s.slug === slug);
+    return { activeCount: spot ? Math.min(12, Math.floor(spot.like_count / 20)) : 0, isCheckedIn: false };
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { count } = await supabase
+    .from("spot_checkins")
+    .select("id", { count: "exact", head: true })
+    .eq("spot_id", spotId)
+    .gt("expires_at", new Date().toISOString());
+
+  let isCheckedIn = false;
+  if (user) {
+    const { data: mine } = await supabase
+      .from("spot_checkins")
+      .select("id")
+      .eq("spot_id", spotId)
+      .eq("user_id", user.id)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    isCheckedIn = !!mine;
+  }
+
+  return { activeCount: count ?? 0, isCheckedIn };
+}
+
+/** 접근로 변경 이력 (feature flag: access_route_change_history). 공개 정보. */
+export async function getSpotAccessStepRevisions(
+  spotId: string,
+  slug: string
+): Promise<SpotAccessStepRevisionRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_ACCESS_STEP_REVISIONS[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_access_step_revisions")
+    .select("*")
+    .eq("spot_id", spotId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data;
 }

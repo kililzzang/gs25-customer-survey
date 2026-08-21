@@ -8,6 +8,9 @@ import type {
   PartnerListingRow,
   BadgeRow,
   SpotReviewRow,
+  SpeciesRow,
+  SpeciesFrequency,
+  SpotAccessStepRevisionRow,
 } from "@/lib/types/database";
 
 /**
@@ -322,7 +325,56 @@ export const MOCK_PARTNER_LISTINGS: PartnerListingRow[] = [
   partner("cebu-moalboal", "물빛 파트너 다이브샵", "rental", "장비 대여 예약"),
   partner("hyeopjae-jeju", "물빛 투어 파트너", "tour", "스노클링 투어 예약"),
   partner("ulleungdo-jeodong", "물빛 투어 파트너", "tour", "스노클링 투어 예약"),
+  // 경로 기반 로컬 제휴처 추천 (17번) — 가는 길목 맛집/카페
+  partner("munseom-jeju", "새섬 해녀의 집", "route_food", "가는 길 해녀 물회 맛집"),
+  partner("hyeopjae-jeju", "협재 브레이크타임", "route_cafe", "해변 앞 오션뷰 카페"),
+  partner("jangho-hang-samcheok", "장호항 회센터", "route_food", "장호항 대표 활어회 거리"),
 ];
+
+function species(
+  id: string,
+  name: string,
+  scientific_name: string,
+  category: string,
+  icon: string
+): SpeciesRow {
+  return { id, name, scientific_name, category, icon, created_at: new Date().toISOString() };
+}
+
+export const MOCK_SPECIES: SpeciesRow[] = [
+  species("clownfish", "흰동가리", "Amphiprion ocellaris", "어류", "🐠"),
+  species("soft-coral", "연산호", "Dendronephthya", "산호", "🪸"),
+  species("sea-urchin", "성게", "Strongylocentrotus", "극피동물", "🦔"),
+  species("abalone", "전복", "Haliotis discus", "연체동물", "🐚"),
+  species("rockfish", "쏨뱅이", "Sebastiscus marmoratus", "어류", "🐟"),
+];
+
+function speciesTag(key: string, frequency: SpeciesFrequency) {
+  const s = MOCK_SPECIES.find((sp) => sp.id === key);
+  if (!s) throw new Error(`unknown species key: ${key}`);
+  return { ...s, frequency };
+}
+
+export const MOCK_SPOT_SPECIES: Record<string, (SpeciesRow & { frequency: SpeciesFrequency })[]> = {
+  "munseom-jeju": [speciesTag("soft-coral", "common"), speciesTag("rockfish", "occasional")],
+  "hyeopjae-jeju": [speciesTag("sea-urchin", "common")],
+  "gapado-hidden": [speciesTag("abalone", "occasional"), speciesTag("rockfish", "common")],
+  "okinawa-blue-cave": [speciesTag("clownfish", "common"), speciesTag("soft-coral", "common")],
+  "cebu-moalboal": [speciesTag("clownfish", "common")],
+};
+
+export const MOCK_ACCESS_STEP_REVISIONS: Record<string, SpotAccessStepRevisionRow[]> = {
+  "jangho-hang-samcheok": [
+    {
+      id: "jangho-hang-samcheok-rev-1",
+      spot_id: "jangho-hang-samcheok",
+      reason: "2026년 7월 폭우로 갯바위 계단 일부 유실, 임시 우회로로 안내",
+      snapshot: { note: "3번 스텝(계단 20m 하강)이 기존에는 15m였음" },
+      changed_by: null,
+      created_at: new Date(Date.now() - 25 * 86400000).toISOString(),
+    },
+  ],
+};
 
 export const MOCK_REVIEWS: Record<string, SpotReviewRow[]> = {
   "munseom-jeju": [
@@ -487,7 +539,7 @@ function spot(
 function partner(
   spotSlug: string,
   partner_name: string,
-  listing_type: "rental" | "tour",
+  listing_type: PartnerListingRow["listing_type"],
   cta_label: string
 ): PartnerListingRow {
   const s = MOCK_SPOTS.find((s) => s.slug === spotSlug);

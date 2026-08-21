@@ -34,6 +34,8 @@ export type TerrainType = "flat" | "stairs" | "rock" | "sand";
 export type ParkingType = "free" | "paid";
 export type CrowdTag = "quiet" | "moderate" | "crowded";
 export type EmergencyFacilityType = "hospital" | "clinic" | "health_center";
+export type SpeciesFrequency = "common" | "occasional" | "rare";
+export type PartnerListingType = "rental" | "tour" | "route_food" | "route_cafe";
 
 export type SpotRow = {
   id: string;
@@ -151,12 +153,44 @@ export type PartnerListingRow = {
   id: string;
   spot_id: string | null;
   partner_name: string;
-  listing_type: "rental" | "tour";
+  listing_type: PartnerListingType;
   banner_url: string | null;
   cta_url: string | null;
   cta_label: string | null;
   is_active: boolean;
   priority: number;
+  created_at: string;
+}
+
+export type SpeciesRow = {
+  id: string;
+  name: string;
+  scientific_name: string | null;
+  category: string | null;
+  icon: string | null;
+  created_at: string;
+}
+
+export type SpotSpeciesRow = {
+  spot_id: string;
+  species_id: string;
+  frequency: SpeciesFrequency | null;
+}
+
+export type SpotCheckinRow = {
+  id: string;
+  spot_id: string;
+  user_id: string;
+  checked_in_at: string;
+  expires_at: string;
+}
+
+export type SpotAccessStepRevisionRow = {
+  id: string;
+  spot_id: string;
+  reason: string;
+  snapshot: Json;
+  changed_by: string | null;
   created_at: string;
 }
 
@@ -262,6 +296,10 @@ export interface Database {
       spot_parking_options: TableShape<SpotParkingOptionRow>;
       spot_emergency_facilities: TableShape<SpotEmergencyFacilityRow>;
       feature_flags: TableShape<FeatureFlagRow>;
+      species: TableShape<SpeciesRow>;
+      spot_species: TableShape<SpotSpeciesRow>;
+      spot_checkins: TableShape<SpotCheckinRow>;
+      spot_access_step_revisions: TableShape<SpotAccessStepRevisionRow>;
     };
     Views: Record<string, never>;
     Functions: {

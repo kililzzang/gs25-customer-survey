@@ -7,9 +7,13 @@ import {
   getSpotParkingOptions,
   getSpotEmergencyFacilities,
   getSpotReviews,
+  getSpotSpecies,
+  getSpotCheckinInfo,
+  getSpotAccessStepRevisions,
 } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeatureFlags } from "@/lib/feature-flags";
+import { getSunTimes, formatSunTime } from "@/lib/sun";
 import { GaugeBar } from "@/components/gauge-bar";
 import { HiddenBadge } from "@/components/hidden-badge";
 import { DetailUnlockGate } from "@/components/detail-unlock-gate";
@@ -19,6 +23,9 @@ import { AccessSteps } from "@/components/access-steps";
 import { ParkingOptions } from "@/components/parking-options";
 import { EmergencyFacilities } from "@/components/emergency-facilities";
 import { SosButton } from "@/components/sos-button";
+import { SpeciesTags } from "@/components/species-tags";
+import { AccessHistory } from "@/components/access-history";
+import { CheckinButton } from "@/components/checkin-button";
 import {
   CURRENT_LEVEL_LABEL,
   SPOT_STATUS_LABEL,
@@ -26,7 +33,8 @@ import {
   getRegionMeta,
 } from "@/lib/regions";
 
-const STAGE1_FLAGS = [
+const SPOT_PAGE_FLAGS = [
+  // 1단계
   "map_pin_route_polyline",
   "kakao_roadview",
   "access_step_cards",
@@ -35,6 +43,14 @@ const STAGE1_FLAGS = [
   "restroom_shower_markers",
   "nearest_emergency_facilities",
   "sos_button",
+  // 2단계 (외부 API 불필요한 것만 활성화)
+  "sunrise_sunset_times",
+  "route_based_partner_recs",
+  "gpx_route_download",
+  // 3단계 (외부 API 불필요한 것만 활성화)
+  "live_checkin_crowd_count",
+  "species_field_guide",
+  "access_route_change_history",
 ] as const;
 
 export default async function SpotDetailPage({
@@ -46,16 +62,32 @@ export default async function SpotDetailPage({
   const { spot, safety, partners } = await getSpotBySlug(slug);
   if (!spot) notFound();
 
-  const [user, lockedInfo, accessSteps, parkingOptions, emergencyFacilities, reviews, flags] =
-    await Promise.all([
-      getCurrentUser(),
-      getSpotLockedInfo(slug),
-      getSpotAccessSteps(spot.id, slug),
-      getSpotParkingOptions(spot.id, slug),
-      getSpotEmergencyFacilities(spot.id, slug),
-      getSpotReviews(slug, spot.id),
-      getFeatureFlags(STAGE1_FLAGS),
-    ]);
+  const [
+    user,
+    lockedInfo,
+    accessSteps,
+    parkingOptions,
+    emergencyFacilities,
+    reviews,
+    species,
+    checkinInfo,
+    accessHistory,
+    flags,
+  ] = await Promise.all([
+    getCurrentUser(),
+    getSpotLockedInfo(slug),
+    getSpotAccessSteps(spot.id, slug),
+    getSpotParkingOptions(spot.id, slug),
+    getSpotEmergencyFacilities(spot.id, slug),
+    getSpotReviews(slug, spot.id),
+    getSpotSpecies(spot.id, slug),
+    getSpotCheckinInfo(spot.id, slug),
+    getSpotAccessStepRevisions(spot.id, slug),
+    getFeatureFlags(SPOT_PAGE_FLAGS),
+  ]);
+
+  // 일출/일몰은 대략 위치(공개 정보)만으로 순수 계산 — 외부 API 불필요, 게이트 없음.
+  const sunTimes = getSunTimes(spot.approx_lat, spot.approx_lng);
 
   const isLoggedIn = !!user;
   const hasUnlockedContent = !!lockedInfo;
@@ -77,6 +109,11 @@ export default async function SpotDetailPage({
   const parkingMapPins = parkingOptions
     .filter((p): p is typeof p & { lat: number; lng: number } => p.lat != null && p.lng != null)
     .map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, type: p.parking_type }));
+
+  const bannerPartners = partners.filter((p) => p.listing_type === "rental" || p.listing_type === "tour");
+  const routePartners = partners.filter(
+    (p) => p.listing_type === "route_food" || p.listing_type === "route_cafe"
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
@@ -121,6 +158,25 @@ export default async function SpotDetailPage({
         </div>
       </div>
 
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-sand/60">
+        {flags.sunrise_sunset_times && (
+          <span>
+            🌅 {formatSunTime(sunTimes.sunrise, spot.approx_lng)} · 🌇{" "}
+            {formatSunTime(sunTimes.sunset, spot.approx_lng)}
+          </span>
+        )}
+      </div>
+
+      {flags.live_checkin_crowd_count && (
+        <div className="mt-4">
+          <CheckinButton
+            spotId={spot.id}
+            initialActiveCount={checkinInfo.activeCount}
+            initialIsCheckedIn={checkinInfo.isCheckedIn}
+          />
+        </div>
+      )}
+
       {/* 사진 (목업 플레이스홀더) */}
       <div className="depth-lines mt-8 flex aspect-[16/7] items-center justify-center rounded-xl border border-foam/15 bg-navy/50 text-sand/30">
         사진 업로드 영역 (스토리지 연동 예정)
@@ -154,6 +210,15 @@ export default async function SpotDetailPage({
           <GaugeBar label="수온" value={spot.water_temp_c} max={30} unit="℃" />
         </div>
       </section>
+
+      {flags.species_field_guide && (
+        <section className="mt-6 rounded-xl border border-foam/15 bg-navy/50 p-6">
+          <h2 className="font-serif text-lg text-sand">관찰 가능 생물</h2>
+          <div className="mt-3">
+            <SpeciesTags species={species} />
+          </div>
+        </section>
+      )}
 
       {/* 지도 — 대략 위치는 항상 공개, 정확한 핀/경로는 로그인 후 */}
       {flags.map_pin_route_polyline && (
@@ -262,15 +327,31 @@ export default async function SpotDetailPage({
               <ParkingOptions options={parkingOptions} />
             </div>
           )}
+
+          {flags.gpx_route_download && routeStepPoints.length > 0 && (
+            <a
+              href={`/api/spots/${spot.slug}/gpx`}
+              className="inline-flex w-fit items-center gap-2 rounded-full border border-foam/25 px-4 py-2 text-sm text-sand/80 transition hover:border-foam hover:text-foam"
+            >
+              ⬇ GPX 경로 파일 다운로드
+            </a>
+          )}
+
+          {flags.access_route_change_history && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">접근로 변경 이력</p>
+              <AccessHistory revisions={accessHistory} />
+            </div>
+          )}
           </>
           )}
         </DetailUnlockGate>
       </section>
 
-      {/* 제휴 배너 */}
-      {partners.length > 0 && (
+      {/* 제휴 배너 (장비대여/투어) */}
+      {bannerPartners.length > 0 && (
         <section className="mt-6 space-y-3">
-          {partners.map((p) => (
+          {bannerPartners.map((p) => (
             <a
               key={p.id}
               href={p.cta_url ?? "#"}
@@ -287,6 +368,30 @@ export default async function SpotDetailPage({
               </span>
             </a>
           ))}
+        </section>
+      )}
+
+      {/* 경로 기반 로컬 제휴처 추천 (17번) — 가는 길목 맛집/카페 */}
+      {flags.route_based_partner_recs && routePartners.length > 0 && (
+        <section className="mt-6">
+          <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">가는 길에 들러보세요</p>
+          <div className="space-y-2">
+            {routePartners.map((p) => (
+              <a
+                key={p.id}
+                href={p.cta_url ?? "#"}
+                className="flex items-center justify-between rounded-lg border border-foam/10 bg-navy/40 px-4 py-2.5 text-sm transition hover:border-foam/30"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full border border-foam/20 px-2 py-0.5 text-[10px] text-foam/70">
+                    {p.listing_type === "route_food" ? "맛집" : "카페"}
+                  </span>
+                  <span className="text-sand">{p.partner_name}</span>
+                </span>
+                <span className="text-xs text-foam/60">{p.cta_label}</span>
+              </a>
+            ))}
+          </div>
         </section>
       )}
 

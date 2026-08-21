@@ -44,7 +44,7 @@ export function loadKakaoMaps(): Promise<any | null> {
 
     const script = document.createElement("script");
     script.id = "kakao-maps-sdk";
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services`;
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false&libraries=services,clusterer`;
     script.async = true;
     script.onload = onReady;
     script.onerror = () => {

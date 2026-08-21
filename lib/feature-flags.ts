@@ -17,27 +17,29 @@ export const FEATURE_FLAG_DEFAULTS = {
   nearest_emergency_facilities: true,
   sos_button: true,
   review_crowd_tag: true,
-  // 2단계 — 기본 비활성화
-  transit_access_info: false,
-  tide_accessibility_warning: false,
-  wave_wind_overlay: false,
-  sunrise_sunset_times: false,
-  uv_index: false,
-  spot_map_clustering: false,
-  route_based_partner_recs: false,
-  gpx_route_download: false,
-  // 3단계 — 기본 비활성화
-  entry_video_upload: false,
-  live_checkin_crowd_count: false,
-  companion_location_share: false,
-  panorama_360_photos: false,
-  species_field_guide: false,
-  seasonal_photo_compare: false,
-  offline_map_download: false,
-  ar_navigation: false,
-  voice_guidance: false,
-  access_route_change_history: false,
-  satellite_update_detection: false,
+  // 2단계 — 외부 API(대중교통/물때/파고풍속/자외선) 연동 전까지 비활성화.
+  // 나머지는 외부 API 없이 실제로 동작하도록 구현되어 기본 활성화합니다.
+  transit_access_info: false, // 카카오/네이버 대중교통 API 연동 예정 (추후 연결)
+  tide_accessibility_warning: false, // 국립해양조사원 API 연동 예정 (추후 연결)
+  wave_wind_overlay: false, // 기상청 API 연동 예정 (추후 연결)
+  sunrise_sunset_times: true, // 순수 계산 (lib/sun.ts), 외부 API 불필요
+  uv_index: false, // 기상청 API 연동 예정 (추후 연결)
+  spot_map_clustering: true, // 카카오맵 클러스터러 — 로직 준비 완료(API 키 필요)
+  route_based_partner_recs: true, // 자체 제휴 데이터 기반
+  gpx_route_download: true, // 자체 데이터(spot_access_steps) 기반
+  // 3단계 — 스토리지/리얼타임/AR 등 무거운 인프라가 필요한 기능은 비활성 유지.
+  // 자체 DB만으로 동작하는 기능(체크인/생물도감/변경이력)은 활성화합니다.
+  entry_video_upload: false, // 영상 업로드/트랜스코딩 파이프라인 필요 (추후 연결)
+  live_checkin_crowd_count: true, // Supabase 테이블 카운트만으로 동작
+  companion_location_share: false, // 리얼타임 위치 공유 UI 미구현 (추후 연결)
+  panorama_360_photos: false, // 360 사진 업로드/뷰어 미구현 (추후 연결)
+  species_field_guide: true, // 정적 참조 데이터
+  seasonal_photo_compare: false, // 실제 계절별 업로드 사진 부족, UI 미구현 (추후 연결)
+  offline_map_download: false, // 오프라인 지도 캐싱 미구현 (추후 연결)
+  ar_navigation: false, // WebXR/네이티브 검토 필요 (추후 연결)
+  voice_guidance: false, // 내비게이션 연동 필요 (추후 연결)
+  access_route_change_history: true, // 읽기 전용 이력 표시, 자체 데이터
+  satellite_update_detection: false, // 외부 위성 이미지 API 필요 (추후 연결)
   nearby_visitors_live_map: false,
 } as const satisfies Record<string, boolean>;
 

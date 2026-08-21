@@ -61,16 +61,38 @@ npm run dev
    `spot_reviews.crowd_tag`(혼잡도 태그)
 10. `0010_feature_flags.sql` — 스팟 상세 로드맵 1~3단계 30개 기능 on/off 스위치
     (`feature_flags` 테이블, 1단계만 기본 활성화)
+11. `0011_stage2_conditions.sql` — `spot_transit_stops`(대중교통), `spot_conditions_cache`
+    (물때/파고·풍속/자외선 통합 캐시, 게이트 예외), `partner_listings`에 경로기반
+    (`route_food`/`route_cafe`) 타입 추가
+12. `0012_stage3_participatory.sql` — `spot_checkins`(체크인), `species`/`spot_species`
+    (생물 도감), `spot_access_step_revisions`(변경 이력), `spot_photos.season_month`,
+    그 외 스토리지/리얼타임이 필요한 기능(영상/파노라마/동행공유/오프라인지도/위성감지/
+    인근방문자지도)의 스키마
+13. `0013_feature_flags_stage23_activation.sql` — 외부 API 없이 실제로 동작하는
+    2·3단계 기능만 활성화
 
 ### 정확한 위치와 접근 방법 (스팟 상세 로드맵)
 
-상세 위치/접근 정보(정확한 좌표, 접근 스텝, 주차 옵션)는 **로그인 게이트**를 적용합니다
-(광고 SDK는 아직 붙이지 않음). `app_settings.detail_unlock_condition`을
+상세 위치/접근 정보(정확한 좌표, 접근 스텝, 주차 옵션, GPX, 변경이력)는 **로그인 게이트**를
+적용합니다(광고 SDK는 아직 붙이지 않음). `app_settings.detail_unlock_condition`을
 `'ad' | 'ad_or_login' | 'premium_only'`로 바꾸면 배포 없이 다른 조건으로 전환됩니다.
 안전 정보(응급연락처/조류경고/최인접 응급실/SOS 버튼)는 게이트 예외로 항상 무료 공개입니다.
 
-30개 기능(1~3단계)은 `feature_flags` 테이블로 관리하며, 현재는 1단계만 활성화되어
-있습니다. `lib/feature-flags.ts`의 `FEATURE_FLAG_DEFAULTS`가 Supabase 미연결 시 폴백값입니다.
+30개 기능(1~3단계)은 `feature_flags` 테이블로 관리합니다. `lib/feature-flags.ts`의
+`FEATURE_FLAG_DEFAULTS`가 Supabase 미연결 시 폴백값입니다.
+
+**현재 활성화 상태**
+
+| 상태 | 기능 |
+|---|---|
+| ✅ 1단계 전체 | 지도 핀/경로, 로드뷰, 접근 스텝카드, 주차 세분화, 난이도 태그, 소요시간, 화장실/샤워실, 최인접 응급실, SOS 버튼, 리뷰 혼잡도 태그 |
+| ✅ 2·3단계 중 외부 API 불필요 | 일출일몰(`lib/sun.ts` 순수 계산), GPX 다운로드, 경로기반 제휴처 추천, 지도 클러스터링(카카오 키 필요), 실시간 체크인, 생물도감, 접근로 변경이력 |
+| ⏸️ 외부 API 연동 대기 (스키마만 준비) | 대중교통 정보, 물때 경고, 파고·풍속 오버레이, 자외선 지수, 위성사진 갱신감지 — 카카오/네이버 대중교통, 국립해양조사원, 기상청 API 연동 필요 |
+| ⏸️ 무거운 인프라 대기 (스키마만 준비) | 진입로 영상, 360 파노라마, 동행자 위치공유, 오프라인 지도, AR 길찾기, 음성 안내, 실시간 인근 방문자 지도 — 스토리지/리얼타임/AR 파이프라인 필요 |
+
+"연동 대기" 항목들은 `feature_flags.enabled = false` 상태이며 UI에도 아직 노출하지
+않습니다. DB 스키마(캐시 테이블 등)만 미리 준비되어 있어, 실제 API 키/인프라가 붙으면
+데이터를 채워 넣고 `feature_flags`만 켜면 됩니다(배포 코드 변경 최소화).
 
 카카오맵/로드뷰는 `NEXT_PUBLIC_KAKAO_MAP_APP_KEY`가 없으면 "API 키가 설정되지
 않았습니다" 안내만 표시하고 조용히 비활성화됩니다.

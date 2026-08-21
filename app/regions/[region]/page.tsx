@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getAllSpots, getSpotsByRegion } from "@/lib/data";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import { RegionTileMap } from "@/components/region-tilemap";
+import { RegionKakaoMap } from "@/components/region-kakao-map";
 import { SpotCard } from "@/components/spot-card";
 import { ALL_REGIONS, getRegionMeta } from "@/lib/regions";
 import type { RegionCode } from "@/lib/types/database";
@@ -20,7 +22,11 @@ export default async function RegionPage({
 
   const regionCode = region as RegionCode;
   const meta = getRegionMeta(regionCode);
-  const [spots, allSpots] = await Promise.all([getSpotsByRegion(regionCode), getAllSpots()]);
+  const [spots, allSpots, flags] = await Promise.all([
+    getSpotsByRegion(regionCode),
+    getAllSpots(),
+    getFeatureFlags(["spot_map_clustering"] as const),
+  ]);
 
   const spotCounts = allSpots.reduce<Partial<Record<RegionCode, number>>>((acc, s) => {
     acc[s.region] = (acc[s.region] ?? 0) + 1;
@@ -36,6 +42,23 @@ export default async function RegionPage({
       <div className="mt-8">
         <RegionTileMap activeRegion={regionCode} spotCounts={spotCounts} />
       </div>
+
+      {flags.spot_map_clustering && spots.length > 0 && (
+        <div className="mt-6">
+          <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">
+            실좌표 지도 (대략 위치, 클러스터링)
+          </p>
+          <RegionKakaoMap
+            spots={spots.map((s) => ({
+              slug: s.slug,
+              name: s.name,
+              lat: s.approx_lat,
+              lng: s.approx_lng,
+              isHidden: s.is_hidden,
+            }))}
+          />
+        </div>
+      )}
 
       <div className="mt-10">
         {spots.length === 0 ? (
