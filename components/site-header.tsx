@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { href: "/regions/jeju", label: "지역 탐색" },
   { href: "/leaderboard", label: "리더보드" },
   { href: "/challenges", label: "챌린지" },
@@ -10,7 +11,13 @@ const NAV_LINKS = [
 ];
 
 export async function SiteHeader() {
-  const user = await getCurrentUser();
+  const [user, flags] = await Promise.all([
+    getCurrentUser(),
+    getFeatureFlags(["community_board"] as const),
+  ]);
+  const navLinks = flags.community_board
+    ? [...BASE_NAV_LINKS, { href: "/community", label: "커뮤니티" }]
+    : BASE_NAV_LINKS;
 
   return (
     <header className="sticky top-0 z-40 border-b border-foam/10 bg-navy-deep/90 backdrop-blur">
@@ -23,7 +30,7 @@ export async function SiteHeader() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-sand/70 md:flex">
-          {NAV_LINKS.map((link) => (
+          {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className="transition hover:text-foam">
               {link.label}
             </Link>

@@ -12,6 +12,7 @@ import {
   MOCK_PARTNER_LISTINGS,
   MOCK_LEADERBOARD_GENERAL,
   MOCK_LEADERBOARD_CORE,
+  MOCK_LEADERBOARD_CORE_BY_ACTIVITY,
   MOCK_REVIEWS,
   MOCK_PROFILE,
   MOCK_BADGES,
@@ -43,6 +44,7 @@ import type {
   SpotFreediveConditionsRow,
   SpotScubaConditionsRow,
   ActivitySafetyTemplateRow,
+  LeaderboardActivity,
   UserCertificationRow,
   CommunityPostRow,
   CommunityReplyRow,
@@ -279,13 +281,21 @@ export function getAllBadges() {
   return MOCK_BADGES;
 }
 
+/**
+ * @param activity "all"(기본)이면 액티비티 무관 전체 합산, 그 외 값이면 해당 액티비티
+ * 서브 트랙만 조회합니다 (leaderboard_scores.activity, supabase/migrations/0018).
+ * general 트랙은 애초에 액티비티 구분이 없어 activity를 무시하고 항상 'all' 기준입니다.
+ */
 export async function getLeaderboard(
-  track: "general" | "core"
+  track: "general" | "core",
+  activity: LeaderboardActivity = "all"
 ): Promise<MockLeaderboardEntry[]> {
   const supabase = await createClient();
 
   if (!supabase) {
-    return track === "general" ? MOCK_LEADERBOARD_GENERAL : MOCK_LEADERBOARD_CORE;
+    if (track === "general") return MOCK_LEADERBOARD_GENERAL;
+    if (activity === "all") return MOCK_LEADERBOARD_CORE;
+    return MOCK_LEADERBOARD_CORE_BY_ACTIVITY[activity] ?? [];
   }
 
   const { data, error } = await supabase
@@ -293,6 +303,7 @@ export async function getLeaderboard(
     .select("rank, score, breakdown, user_id, profiles:user_id(username, display_name, guide_tier)")
     .eq("track", track)
     .eq("period", "all_time")
+    .eq("activity", track === "general" ? "all" : activity)
     .order("score", { ascending: false })
     .limit(20);
 

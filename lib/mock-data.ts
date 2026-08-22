@@ -526,6 +526,17 @@ export const MOCK_LEADERBOARD_CORE: MockLeaderboardEntry[] = [
   { rank: 5, username: "coral_hunter", displayName: "코랄헌터", guideTier: "explorer", score: 33, breakdown: { hidden_discovery: 15, detail_first: 15, verification: 3 } },
 ];
 
+/**
+ * 핵심 트랙의 액티비티별 서브랭킹 (leaderboard_scores.activity, supabase/migrations/0018).
+ * 아직 서핑만 시드 스팟이 있어 서핑만 채워두고, 나머지 액티비티는 데이터가 쌓이면 추가합니다.
+ */
+export const MOCK_LEADERBOARD_CORE_BY_ACTIVITY: Partial<Record<string, MockLeaderboardEntry[]>> = {
+  surfing: [
+    { rank: 1, username: "seabreeze", displayName: "씨브리즈", guideTier: "explorer", score: 12, breakdown: { new_spot: 2, detail_first: 6 } },
+    { rank: 2, username: "finfollower", displayName: "핀팔로워", guideTier: "explorer", score: 8, breakdown: { new_spot: 1, detail_first: 5 } },
+  ],
+};
+
 // ------------------------------------------------------------------
 // 액티비티 안전정보 템플릿 — supabase/migrations/0018 시딩값과 동일하게 유지
 // ------------------------------------------------------------------
