@@ -11,6 +11,12 @@ import type {
   SpeciesRow,
   SpeciesFrequency,
   SpotAccessStepRevisionRow,
+  SpotSurfConditionsRow,
+  SpotActivityDifficultyRow,
+  ActivitySafetyTemplateRow,
+  UserCertificationRow,
+  CommunityPostRow,
+  CommunityReplyRow,
 } from "@/lib/types/database";
 
 /**
@@ -25,7 +31,8 @@ export const MOCK_SPOTS: SpotRow[] = [
     33.223, 126.56, 2, 12, 8, "moderate", 22, false, "verified", 88, 20, 142),
   spot("hyeopjae-jeju", "협재 해변 스노클링", "jeju",
     "초보자에게 적합한 얕은 수심의 백사장 스노클링존.",
-    33.394, 126.239, 1, 4, 6, "calm", 23, false, "verified", 91, 10, 210),
+    33.394, 126.239, 1, 4, 6, "calm", 23, false, "verified", 91, 10, 210,
+    { activities: ["snorkeling", "sea_swimming"], terrain: "sand_beach" }),
   spot("gapado-hidden", "가파도 숨은 여", "jeju",
     "현지 다이버들 사이에서만 알려진 조용한 포인트.",
     33.173, 126.271, 3, 9, 7, "moderate", 21, true, "verified", 76, 40, 58),
@@ -37,13 +44,15 @@ export const MOCK_SPOTS: SpotRow[] = [
     38.38, 128.478, 4, 14, 10, "strong", 17, true, "verified", 82, 15, 33),
   spot("taean-mongsanpo", "태안 몽산포 스노클링존", "chungcheong",
     "서해 특유의 갯벌 지형 초입 스노클링 구역.",
-    36.786, 126.194, 1, 3, 3, "moderate", 20, false, "verified", 70, 60, 27),
+    36.786, 126.194, 1, 3, 3, "moderate", 20, false, "verified", 70, 60, 27,
+    { activities: ["snorkeling", "sea_swimming"], terrain: "sand_beach" }),
   spot("ulleungdo-jeodong", "울릉도 저동항 포인트", "gyeongbuk",
     "청정 동해 수심과 다양한 어종을 볼 수 있는 곳.",
     37.503, 130.91, 3, 15, 12, "moderate", 19, false, "verified", 93, 8, 165),
   spot("geoje-hakdong", "거제 학동 몽돌해변 포인트", "gyeongnam",
     "몽돌해변과 이어지는 완만한 수중 지형.",
-    34.782, 128.64, 2, 8, 7, "calm", 21, false, "verified", 80, 25, 74),
+    34.782, 128.64, 2, 8, 7, "calm", 21, false, "verified", 80, 25, 74,
+    { activities: ["snorkeling", "sea_swimming"] }),
   spot("yeosu-hidden", "여수 외돌개 뒤편 여", "jeolla",
     "현지 어민들만 알던 포인트, 최근 제보로 알려짐.",
     34.708, 127.755, 3, 11, 8, "moderate", 20, true, "pending", 48, null, 12),
@@ -152,7 +161,45 @@ export const MOCK_SPOTS: SpotRow[] = [
     "근해부터 먼바다까지 다양한 다이빙 포인트",
     34.756, 128.028, 5, 20, 10, "moderate", 23, false, "verified", 60, null, 0,
     { subregion: "남해", difficulty: "intermediate" }),
+
+  // ------------------------------------------------------------------
+  // 서핑 스팟 2곳 (2차 우선순위 — 강원 양양)
+  // ------------------------------------------------------------------
+  spot("jukdo-beach-yangyang", "죽도해변", "gangwon",
+    "국내 대표 서핑 스팟, 초보자 서핑 스쿨이 밀집한 해변",
+    38.113, 128.799, 1, 3, 6, "moderate", 19, false, "verified", 75, 20, 0,
+    { subregion: "양양", activities: ["surfing"], terrain: "sand_beach" }),
+  spot("ingu-beach-yangyang", "인구해변", "gangwon",
+    "죽도해변 인근의 또 다른 서핑 명소, 상대적으로 한적함",
+    38.099, 128.789, 1, 3, 6, "moderate", 19, true, "verified", 65, 30, 0,
+    { subregion: "양양", activities: ["surfing"], terrain: "sand_beach" }),
 ];
+
+export const MOCK_SURF_CONDITIONS: Record<string, SpotSurfConditionsRow> = {
+  "jukdo-beach-yangyang": {
+    spot_id: "jukdo-beach-yangyang",
+    wave_height_min_m: 0.5,
+    wave_height_max_m: 1.2,
+    swell_period_sec: 8,
+    wind_direction: "offshore",
+    break_type: "beach_break",
+    updated_at: new Date().toISOString(),
+  },
+  "ingu-beach-yangyang": {
+    spot_id: "ingu-beach-yangyang",
+    wave_height_min_m: 0.6,
+    wave_height_max_m: 1.5,
+    swell_period_sec: 9,
+    wind_direction: "offshore",
+    break_type: "beach_break",
+    updated_at: new Date().toISOString(),
+  },
+};
+
+export const MOCK_ACTIVITY_DIFFICULTY: Record<string, SpotActivityDifficultyRow[]> = {
+  "jukdo-beach-yangyang": [{ spot_id: "jukdo-beach-yangyang", activity: "surfing", difficulty: "beginner" }],
+  "ingu-beach-yangyang": [{ spot_id: "ingu-beach-yangyang", activity: "surfing", difficulty: "intermediate" }],
+};
 
 export const MOCK_SAFETY_INFO: Record<string, SpotSafetyInfoRow> = Object.fromEntries(
   MOCK_SPOTS.map((s) => [
@@ -479,6 +526,57 @@ export const MOCK_LEADERBOARD_CORE: MockLeaderboardEntry[] = [
   { rank: 5, username: "coral_hunter", displayName: "코랄헌터", guideTier: "explorer", score: 33, breakdown: { hidden_discovery: 15, detail_first: 15, verification: 3 } },
 ];
 
+// ------------------------------------------------------------------
+// 액티비티 안전정보 템플릿 — supabase/migrations/0018 시딩값과 동일하게 유지
+// ------------------------------------------------------------------
+export const MOCK_ACTIVITY_SAFETY_TEMPLATES: ActivitySafetyTemplateRow[] = [
+  { activity: "snorkeling", title: "조류 경고", body: "조류가 강한 날은 입수를 자제하고, 반드시 구조 튜브·부이를 착용하세요." },
+  { activity: "sea_swimming", title: "조류 경고", body: "이안류(역조류) 발생 시 당황하지 말고 해안과 평행하게 헤엄쳐 빠져나오세요." },
+  { activity: "surfing", title: "리프/암초 주의", body: "간조 시 리프 브레이크 지형은 수심이 얕아질 수 있습니다. 핀 부상에 유의하세요." },
+  { activity: "freediving", title: "블랙아웃 위험", body: "얕은물 블랙아웃(shallow water blackout)은 예고 없이 발생합니다. 반드시 버디와 동행하고 혼자 잠수하지 마세요." },
+  { activity: "scuba", title: "감압병·비상상승 절차", body: "무감압한계(NDL)를 넘기지 말고, 상승 시 분당 9m 이하로 천천히 상승하며 안전정지(5m, 3분)를 지키세요. 감압병 의심 증상 발생 시 즉시 최인접 고압산소 치료 시설로 이동하세요." },
+];
+
+// ------------------------------------------------------------------
+// 공인 자격증 (프로필 표시용, MOCK_PROFILE 소유자 기준)
+// ------------------------------------------------------------------
+export const MOCK_CERTIFICATIONS: UserCertificationRow[] = [
+  {
+    id: "cert1", user_id: "u1", org: "PADI", level: "Advanced Open Water",
+    cert_number: "PA-2024-88214", issued_at: "2024-03-02", verified: true, created_at: iso(120),
+  },
+  {
+    id: "cert2", user_id: "u1", org: "AIDA", level: "Freediver Level 2",
+    cert_number: null, issued_at: "2025-01-10", verified: false, created_at: iso(20),
+  },
+];
+
+// ------------------------------------------------------------------
+// 액티비티별 커뮤니티 게시판 (신규 기능, feature_flags.community_board)
+// ------------------------------------------------------------------
+export const MOCK_COMMUNITY_POSTS: CommunityPostRow[] = [
+  {
+    id: "cp1", author_id: "u2", username: "seabreeze", activity: "snorkeling",
+    title: "문섬 요즘 시야 어떤가요?", body: "이번 주말에 문섬 가려는데 최근 시야 정보 아시는 분 계신가요?",
+    reply_count: 2, created_at: iso(3), updated_at: iso(3),
+  },
+  {
+    id: "cp2", author_id: "u3", username: "finfollower", activity: "surfing",
+    title: "죽도해변 초보 서핑 스쿨 추천해주세요", body: "9월 초에 양양 죽도해변에서 처음 서핑 배워보려고 합니다. 강습 후기 있으신 분?",
+    reply_count: 1, created_at: iso(6), updated_at: iso(6),
+  },
+];
+
+export const MOCK_COMMUNITY_REPLIES: Record<string, CommunityReplyRow[]> = {
+  cp1: [
+    { id: "cr1", post_id: "cp1", author_id: "u1", username: "aqua_min", body: "지난 화요일 기준으로 6m 정도 나왔어요. 오전이 더 좋았습니다.", created_at: iso(2) },
+    { id: "cr2", post_id: "cp1", author_id: "u4", username: "hidden_seeker", body: "저도 이번 주말 갈 예정이라 궁금하네요 :)", created_at: iso(1) },
+  ],
+  cp2: [
+    { id: "cr3", post_id: "cp2", author_id: "u1", username: "aqua_min", body: "죽도 서핑스쿨 다 비슷한데 오전반이 파도가 조금 더 순해서 초보자에게 좋아요.", created_at: iso(5) },
+  ],
+};
+
 function spot(
   slug: string,
   name: string,
@@ -502,6 +600,9 @@ function spot(
     coordinatesVerified?: boolean;
     difficulty?: SpotRow["difficulty"];
     syntheticTest?: boolean;
+    /** 미지정 시 ["snorkeling"] — 기존 스팟은 전부 스노클링 스팟이었으므로 하위호환 기본값. */
+    activities?: SpotRow["activities"];
+    terrain?: SpotRow["terrain"];
   } = {}
 ): SpotRow {
   const now = Date.now();
@@ -523,6 +624,8 @@ function spot(
     current_level,
     water_temp_c,
     difficulty: opts.difficulty ?? null,
+    activities: opts.activities ?? ["snorkeling"],
+    terrain: opts.terrain ?? null,
     is_hidden,
     status,
     trust_score,

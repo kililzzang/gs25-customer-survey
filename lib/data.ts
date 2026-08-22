@@ -15,6 +15,12 @@ import {
   MOCK_REVIEWS,
   MOCK_PROFILE,
   MOCK_BADGES,
+  MOCK_SURF_CONDITIONS,
+  MOCK_ACTIVITY_DIFFICULTY,
+  MOCK_ACTIVITY_SAFETY_TEMPLATES,
+  MOCK_CERTIFICATIONS,
+  MOCK_COMMUNITY_POSTS,
+  MOCK_COMMUNITY_REPLIES,
   type MockLeaderboardEntry,
   type MockProfile,
 } from "@/lib/mock-data";
@@ -31,6 +37,15 @@ import type {
   PartnerListingRow,
   SpotReviewRow,
   RegionCode,
+  ActivityType,
+  SpotActivityDifficultyRow,
+  SpotSurfConditionsRow,
+  SpotFreediveConditionsRow,
+  SpotScubaConditionsRow,
+  ActivitySafetyTemplateRow,
+  UserCertificationRow,
+  CommunityPostRow,
+  CommunityReplyRow,
 } from "@/lib/types/database";
 
 /**
@@ -385,4 +400,201 @@ export async function getSpotAccessStepRevisions(
 
   if (error || !data) return [];
   return data;
+}
+
+// ------------------------------------------------------------------
+// 해양 액티비티 통합 가이드 확장 — 스노클링 전용에서 5종 액티비티로.
+// 스노클링/바다수영은 기존 컨디션 필드(수심/시야/조류)를 그대로 재사용하고,
+// 서핑/프리다이빙/스쿠버는 활동 전용 컨디션 테이블을 별도로 둡니다.
+// ------------------------------------------------------------------
+
+/**
+ * 스팟별 액티비티 난이도 (spot_activity_difficulty). 목업 모드에서는 명시적으로
+ * 시딩된 서핑 스팟 외에, 레거시 spots.difficulty가 있는 스팟에 한해 'snorkeling'
+ * 난이도로 합성합니다 — 0016 마이그레이션의 실제 DB 백필 로직과 동일한 규칙입니다.
+ */
+export async function getSpotActivityDifficulty(
+  spotId: string,
+  slug: string
+): Promise<SpotActivityDifficultyRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    const explicit = MOCK_ACTIVITY_DIFFICULTY[slug];
+    if (explicit) return explicit;
+    const spot = MOCK_SPOTS.find((s) => s.slug === slug);
+    if (spot?.difficulty) {
+      return [{ spot_id: spot.id, activity: "snorkeling", difficulty: spot.difficulty }];
+    }
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_activity_difficulty")
+    .select("*")
+    .eq("spot_id", spotId);
+
+  if (error || !data) return [];
+  return data;
+}
+
+/** 서핑 컨디션(파고/스웰주기/바람방향/브레이크 타입). feature flag: activity_surfing. */
+export async function getSpotSurfConditions(
+  spotId: string,
+  slug: string
+): Promise<SpotSurfConditionsRow | null> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_SURF_CONDITIONS[slug] ?? null;
+  }
+
+  const { data, error } = await supabase
+    .from("spot_surf_conditions")
+    .select("*")
+    .eq("spot_id", spotId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+/** 프리다이빙 컨디션(최대 심도존/안전라인/부이 유무). feature flag: activity_freediving. */
+export async function getSpotFreediveConditions(
+  spotId: string,
+  slug: string
+): Promise<SpotFreediveConditionsRow | null> {
+  const supabase = await createClient();
+  if (!supabase) {
+    // 목업 모드에는 아직 프리다이빙 시드 스팟이 없습니다 (3차 우선순위, 추후 시딩).
+    void slug;
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("spot_freedive_conditions")
+    .select("*")
+    .eq("spot_id", spotId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+/** 스쿠버 컨디션(수중지형/요구 자격레벨/최대심도). feature flag: activity_scuba. */
+export async function getSpotScubaConditions(
+  spotId: string,
+  slug: string
+): Promise<SpotScubaConditionsRow | null> {
+  const supabase = await createClient();
+  if (!supabase) {
+    // 목업 모드에는 아직 스쿠버 시드 스팟이 없습니다 (3차 우선순위, 추후 시딩).
+    void slug;
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("spot_scuba_conditions")
+    .select("*")
+    .eq("spot_id", spotId)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+/** 액티비티별 공통 안전정보 템플릿 (정적 참조 데이터, 스팟별 spot_safety_info와 병기). */
+export async function getActivitySafetyTemplate(
+  activity: ActivityType
+): Promise<ActivitySafetyTemplateRow | null> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_ACTIVITY_SAFETY_TEMPLATES.find((t) => t.activity === activity) ?? null;
+  }
+
+  const { data, error } = await supabase
+    .from("activity_safety_templates")
+    .select("*")
+    .eq("activity", activity)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return data;
+}
+
+/** 유저가 등록한 공인 자격증 목록 (feature flag: certifications_profile). */
+export async function getUserCertifications(username: string): Promise<UserCertificationRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return username === MOCK_PROFILE.username ? MOCK_CERTIFICATIONS : [];
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("username", username)
+    .maybeSingle();
+  if (!profile) return [];
+
+  const { data, error } = await supabase
+    .from("user_certifications")
+    .select("*")
+    .eq("user_id", profile.id)
+    .order("issued_at", { ascending: false });
+
+  if (error || !data) return [];
+  return data;
+}
+
+/** 액티비티별 커뮤니티 게시글 목록 (feature flag: community_board). activity 미지정 시 전체. */
+export async function getCommunityPosts(activity?: ActivityType): Promise<CommunityPostRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    const posts = activity
+      ? MOCK_COMMUNITY_POSTS.filter((p) => p.activity === activity)
+      : MOCK_COMMUNITY_POSTS;
+    return [...posts].sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+  }
+
+  let query = supabase
+    .from("community_posts")
+    .select("*, profiles:author_id(username)")
+    .order("created_at", { ascending: false });
+  if (activity) query = query.eq("activity", activity);
+
+  const { data, error } = await query;
+  if (error || !data) return [];
+  return (data as (CommunityPostRow & { profiles: { username: string } | null })[]).map((p) => ({
+    ...p,
+    username: p.profiles?.username,
+  }));
+}
+
+/** 커뮤니티 게시글 1건 + 댓글. */
+export async function getCommunityPost(
+  postId: string
+): Promise<{ post: CommunityPostRow | null; replies: CommunityReplyRow[] }> {
+  const supabase = await createClient();
+  if (!supabase) {
+    const post = MOCK_COMMUNITY_POSTS.find((p) => p.id === postId) ?? null;
+    return { post, replies: post ? MOCK_COMMUNITY_REPLIES[postId] ?? [] : [] };
+  }
+
+  const [{ data: post }, { data: replies }] = await Promise.all([
+    supabase.from("community_posts").select("*, profiles:author_id(username)").eq("id", postId).maybeSingle(),
+    supabase
+      .from("community_replies")
+      .select("*, profiles:author_id(username)")
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true }),
+  ]);
+
+  if (!post) return { post: null, replies: [] };
+  type JoinedPost = CommunityPostRow & { profiles: { username: string } | null };
+  type JoinedReply = CommunityReplyRow & { profiles: { username: string } | null };
+  const typedPost = post as JoinedPost;
+  const typedReplies = (replies ?? []) as JoinedReply[];
+
+  return {
+    post: { ...typedPost, username: typedPost.profiles?.username },
+    replies: typedReplies.map((r) => ({ ...r, username: r.profiles?.username })),
+  };
 }

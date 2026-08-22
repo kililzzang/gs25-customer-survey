@@ -41,6 +41,14 @@ export const FEATURE_FLAG_DEFAULTS = {
   access_route_change_history: true, // 읽기 전용 이력 표시, 자체 데이터
   satellite_update_detection: false, // 외부 위성 이미지 API 필요 (추후 연결)
   nearby_visitors_live_map: false,
+  // 해양 액티비티 통합 가이드 확장 — supabase/migrations/0020_activity_feature_flags.sql과 동일하게 유지.
+  // 콘텐츠 우선순위: 1차 스노클링+바다수영 → 2차 서핑 → 3차 프리다이빙/스쿠버.
+  activity_sea_swimming: true, // 1차 오픈 — 스노클링과 동일 컨디션 필드 재사용
+  activity_surfing: false, // 2차 오픈 — 강원 양양 등 서핑 명소 시딩 후 활성화
+  activity_freediving: false, // 3차 오픈 — 전문 자격 영역, 안전라인 데이터 확보 후 활성화
+  activity_scuba: false, // 3차 오픈 — 전문 자격 영역, 인증레벨 데이터 확보 후 활성화
+  community_board: false, // 신규 기능 — 최소 스키마로 준비, UI 완성도 확인 후 활성화
+  certifications_profile: true, // PADI/AIDA 등 자격증 등록 및 인증된 전문가 뱃지
 } as const satisfies Record<string, boolean>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAG_DEFAULTS;

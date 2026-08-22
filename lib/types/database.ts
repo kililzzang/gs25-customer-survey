@@ -36,6 +36,14 @@ export type CrowdTag = "quiet" | "moderate" | "crowded";
 export type EmergencyFacilityType = "hospital" | "clinic" | "health_center";
 export type SpeciesFrequency = "common" | "occasional" | "rare";
 export type PartnerListingType = "rental" | "tour" | "route_food" | "route_cafe";
+export type ActivityType = "snorkeling" | "sea_swimming" | "surfing" | "freediving" | "scuba";
+export type SpotTerrainType = "sand_beach" | "rocky_shore" | "breakwater" | "reef_zone";
+export type SurfBreakType = "beach_break" | "reef_break" | "point_break";
+export type ScubaUnderwaterTerrain = "wreck" | "wall" | "reef" | "cave" | "artificial_reef";
+export type ScubaCertLevel = "open_water" | "advanced" | "rescue" | "divemaster";
+export type CertOrg = "PADI" | "AIDA" | "SSI" | "NAUI" | "KOSDA" | "other";
+/** 'all' = 액티비티 무관 전체 합산 트랙 */
+export type LeaderboardActivity = "all" | ActivityType;
 
 export type SpotRow = {
   id: string;
@@ -54,7 +62,12 @@ export type SpotRow = {
   visibility_m: number | null;
   current_level: CurrentLevel;
   water_temp_c: number | null;
+  /** @deprecated 하위호환용 스노클링 기준 난이도. 신규 코드는 spot_activity_difficulty를 사용하세요. */
   difficulty: SpotDifficulty | null;
+  /** 이 스팟에서 가능한 액티비티 목록(다중 선택). */
+  activities: ActivityType[];
+  /** 입수 지형(백사장/갯바위/방파제/암초지대). activities와 독립적인 속성. */
+  terrain: SpotTerrainType | null;
   is_hidden: boolean;
   status: SpotStatus;
   trust_score: number;
@@ -136,6 +149,78 @@ export type FeatureFlagRow = {
   updated_at: string;
 }
 
+export type SpotActivityDifficultyRow = {
+  spot_id: string;
+  activity: ActivityType;
+  difficulty: SpotDifficulty;
+}
+
+export type SpotSurfConditionsRow = {
+  spot_id: string;
+  wave_height_min_m: number | null;
+  wave_height_max_m: number | null;
+  swell_period_sec: number | null;
+  wind_direction: string | null;
+  break_type: SurfBreakType | null;
+  updated_at: string;
+}
+
+export type SpotFreediveConditionsRow = {
+  spot_id: string;
+  max_depth_zone_m: number | null;
+  has_safety_line: boolean | null;
+  has_buoy: boolean | null;
+  notes: string | null;
+  updated_at: string;
+}
+
+export type SpotScubaConditionsRow = {
+  spot_id: string;
+  underwater_terrain: ScubaUnderwaterTerrain | null;
+  required_cert_level: ScubaCertLevel | null;
+  max_depth_m: number | null;
+  notes: string | null;
+  updated_at: string;
+}
+
+export type ActivitySafetyTemplateRow = {
+  activity: ActivityType;
+  title: string;
+  body: string;
+}
+
+export type UserCertificationRow = {
+  id: string;
+  user_id: string;
+  org: CertOrg;
+  level: string;
+  cert_number: string | null;
+  issued_at: string | null;
+  verified: boolean;
+  created_at: string;
+}
+
+export type CommunityPostRow = {
+  id: string;
+  author_id: string;
+  username?: string;
+  activity: ActivityType;
+  title: string;
+  body: string;
+  reply_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CommunityReplyRow = {
+  id: string;
+  post_id: string;
+  author_id: string;
+  username?: string;
+  body: string;
+  created_at: string;
+}
+
 export type SpotPhotoRow = {
   id: string;
   spot_id: string;
@@ -215,6 +300,7 @@ export type ReportRow = {
   type: ReportType;
   payload: Json;
   status: ReportStatus;
+  activity: ActivityType | null;
   reviewed_by: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -225,6 +311,7 @@ export type LeaderboardScoreRow = {
   user_id: string;
   track: LeaderboardTrack;
   period: string;
+  activity: LeaderboardActivity;
   score: number;
   breakdown: Json;
   rank: number | null;
@@ -302,6 +389,14 @@ export interface Database {
       spot_species: TableShape<SpotSpeciesRow>;
       spot_checkins: TableShape<SpotCheckinRow>;
       spot_access_step_revisions: TableShape<SpotAccessStepRevisionRow>;
+      spot_activity_difficulty: TableShape<SpotActivityDifficultyRow>;
+      spot_surf_conditions: TableShape<SpotSurfConditionsRow>;
+      spot_freedive_conditions: TableShape<SpotFreediveConditionsRow>;
+      spot_scuba_conditions: TableShape<SpotScubaConditionsRow>;
+      activity_safety_templates: TableShape<ActivitySafetyTemplateRow>;
+      user_certifications: TableShape<UserCertificationRow>;
+      community_posts: TableShape<CommunityPostRow>;
+      community_replies: TableShape<CommunityReplyRow>;
     };
     Views: Record<string, never>;
     Functions: {

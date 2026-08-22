@@ -55,6 +55,7 @@ export default async function RegionPage({
               lat: s.approx_lat,
               lng: s.approx_lng,
               isHidden: s.is_hidden,
+              activities: s.activities,
             }))}
           />
         </div>
