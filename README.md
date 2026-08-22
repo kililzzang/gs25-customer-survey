@@ -1,7 +1,9 @@
 # 물빛 (Mulbit)
 
-국내외 스노클링 스팟을 지역별로 탐색하고, 수심·시야·조류·수온 데이터와 커뮤니티 검증을
-통해 믿을 수 있는 포인트를 찾을 수 있는 가이드 서비스입니다.
+국내외 해양 액티비티 스팟(스노클링·바다수영·서핑·프리다이빙·스쿠버다이빙)을 지역별로
+탐색하고, 수심·시야·조류·수온 등 컨디션 데이터와 커뮤니티 검증을 통해 믿을 수 있는
+포인트를 찾을 수 있는 가이드 서비스입니다. 스노클링 전문 서비스로 시작해 액티비티
+통합 가이드로 확장되었습니다 — 자세한 내용은 [해양 액티비티 통합 가이드 확장](#해양-액티비티-통합-가이드-확장) 참고.
 
 ## 기술 스택
 
@@ -74,6 +76,18 @@ npm run dev
     (계정/IP 기준 rate limit + 이상 탐지 자동 플래그), `unlock_spot_details` RPC에 적용
 15. `0015_photo_storage_originals.sql` — 비공개 원본 사진 버킷(`spot-photos-originals`),
     `spot_photos.original_storage_path`
+16. `0016_activities_core.sql` — `activity_type` enum(5종), `spots.activities`(배열, GIN
+    인덱스), `spots.terrain`, `spot_activity_difficulty`(액티비티별 난이도, 기존
+    `spots.difficulty`는 하위호환용으로 유지하며 스노클링 값으로 백필)
+17. `0017_activity_condition_tables.sql` — `spot_surf_conditions`(파고/스웰주기/바람방향/
+    브레이크타입), `spot_freedive_conditions`(안전라인/부이), `spot_scuba_conditions`
+    (수중지형/요구 자격레벨/최대심도)
+18. `0018_activity_scoring_and_safety.sql` — `reports`/`score_events`/`leaderboard_scores`에
+    `activity` 컬럼 추가(핵심 트랙 액티비티별 서브랭킹), `activity_safety_templates`
+    (액티비티별 공통 안전정보 템플릿, 5종 시딩)
+19. `0019_certifications_and_community.sql` — `user_certifications`(PADI/AIDA 등 공인
+    자격증, 관리자 수동 인증), `community_posts`/`community_replies`(액티비티별 게시판, 신규)
+20. `0020_activity_feature_flags.sql` — 액티비티 순차 오픈용 `feature_flags` 6개 시딩
 
 ### 무단 크롤링/스크래핑 방지
 
@@ -165,6 +179,39 @@ delete from spots where synthetic_test = true;
 `.env.local`에 `NEXT_PUBLIC_INCLUDE_SYNTHETIC_TEST_SPOTS=true`를 설정하세요
 (`lib/mock-data.ts`의 `MOCK_SYNTHETIC_TEST_SPOTS`를 사용, 기본은 꺼져 있음).
 
+### 해양 액티비티 통합 가이드 확장
+
+스노클링 전문에서 5종 액티비티(스노클링/바다수영/서핑/프리다이빙/스쿠버다이빙) 통합
+가이드로 확장했습니다. `lib/activities.ts`에 액티비티 메타데이터(라벨/아이콘/색상/설명/
+컨디션 신호등 판정 함수)가 모여 있습니다.
+
+**콘텐츠 우선순위 (순차 오픈, `feature_flags`)**
+
+| 순서 | 액티비티 | 상태 | 비고 |
+|---|---|---|---|
+| 1차 | 스노클링 | ✅ 항상 활성 | 플래그 없음(기존 서비스) |
+| 1차 | 바다수영 | ✅ 기본 활성 | 스노클링과 동일 컨디션 필드 재사용 |
+| 2차 | 서핑 | ⏸️ 기본 비활성 | 강원 양양 시드 스팟 2곳 존재, 파고/스웰/브레이크타입 컨디션 |
+| 3차 | 프리다이빙 | ⏸️ 기본 비활성 | 안전라인 데이터 확보 전, 시드 스팟 없음 |
+| 3차 | 스쿠버다이빙 | ⏸️ 기본 비활성 | 인증레벨 데이터 확보 전, 시드 스팟 없음 |
+
+플래그 켜는 법은 기존 30개 기능과 동일하게 `feature_flags` 테이블의 `enabled`만
+바꾸면 됩니다(배포 불필요). `community_board`(신규 커뮤니티 게시판)와
+`certifications_profile`(프로필 자격증 표시)도 같은 마이그레이션(0020)에서 함께 시딩됩니다.
+
+**로그인 게이트는 액티비티 무관하게 동일합니다** — 정확한 좌표/접근로는 여전히 로그인
+후 열람, 안전정보(액티비티별 템플릿 포함)는 항상 무료 공개입니다.
+
+**URL 라우팅 메모** — 원 요청은 `/spots/[region]/[activity]`였지만, 이미
+`/spots/[slug]`가 스팟 상세 페이지 경로로 쓰이고 있어 `[slug]`와 `[region]`이 같은
+깊이의 형제 동적 세그먼트로 충돌합니다(Next.js는 이를 허용하지 않음). 그래서 SEO
+랜딩 페이지는 `/regions/[region]/[activity]`에 배치했고, 기존 `/spots/[slug]` URL은
+그대로입니다.
+
+아직 순차 오픈 전인 액티비티의 랜딩 페이지(`/regions/[region]/[activity]`)는 404
+대신 "준비 중" 상태로 보여주고 `noindex`를 설정합니다 — URL 구조는 미리 존재하되
+검색엔진에는 아직 노출되지 않습니다.
+
 ### 좌표 정확도 안내
 
 현재 시딩된 모든 스팟의 좌표(`approx_lat`/`approx_lng`)는 지도 기준 추정치이며
@@ -174,13 +221,17 @@ delete from spots where synthetic_test = true;
 ## 페이지 구조
 
 ```
-/                          홈 — 지역 타일맵, 인기/히든 스팟
-/regions/[region]          지역별 스팟 탐색
-/spots/[slug]              스팟 상세 (게이지, 안전정보, 광고 게이트, 후기)
+/                          홈 — 지역 타일맵, 인기/히든 스팟, 오늘 뭐가 좋을까(계절 추천)
+/onboarding                액티비티+지역 2단계 선택 온보딩
+/regions/[region]          지역별 스팟 탐색 (모든 액티비티, 카카오맵 색상 핀 + 레이어 토글)
+/regions/[region]/[activity]  지역×액티비티 SEO 랜딩 페이지 (순차 오픈 전은 "준비 중")
+/spots/[slug]              스팟 상세 (게이지, 액티비티 뱃지, 안전정보, 광고 게이트, 후기)
 /spots/[slug]/contribute   상세정보(좌표/접근로/주차팁) 기여
 /submit                    신규 스팟 제보 (EXIF GPS 자동 파싱)
-/leaderboard                리더보드 (일반 트랙 / 핵심 트랙)
-/profile/[username]        방문 스탬프, 뱃지, 칭호, 제보 이력
+/leaderboard                리더보드 (일반 트랙 / 핵심 트랙 — 핵심 트랙은 액티비티별 필터)
+/community                 액티비티별 커뮤니티 게시판 (신규, community_board 플래그)
+/community/[id]            게시글 상세 + 댓글
+/profile/[username]        방문 스탬프, 뱃지, 칭호, 제보 이력, 공인 자격증
 /membership                프리미엄 멤버십
 /challenges                챌린지 이벤트
 /login                     Supabase Auth (이메일 매직링크 / Google OAuth)
