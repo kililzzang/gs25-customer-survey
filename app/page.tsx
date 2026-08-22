@@ -1,11 +1,22 @@
 import Link from "next/link";
 import { getAllSpots } from "@/lib/data";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import { RegionTileMap } from "@/components/region-tilemap";
 import { SpotCard } from "@/components/spot-card";
-import type { RegionCode } from "@/lib/types/database";
+import { OnboardingRecall } from "@/components/onboarding-recall";
+import { getActivityMeta, getSeasonalRecommendation } from "@/lib/activities";
+import { getRegionMeta } from "@/lib/regions";
+import type { ActivityType, RegionCode } from "@/lib/types/database";
+
+const ACTIVITY_FLAG_KEYS = [
+  "activity_sea_swimming",
+  "activity_surfing",
+  "activity_freediving",
+  "activity_scuba",
+] as const;
 
 export default async function HomePage() {
-  const spots = await getAllSpots();
+  const [spots, flags] = await Promise.all([getAllSpots(), getFeatureFlags(ACTIVITY_FLAG_KEYS)]);
   const popular = [...spots].sort((a, b) => b.like_count - a.like_count).slice(0, 3);
   const hidden = spots.filter((s) => s.is_hidden).slice(0, 3);
 
@@ -13,6 +24,32 @@ export default async function HomePage() {
     acc[s.region] = (acc[s.region] ?? 0) + 1;
     return acc;
   }, {});
+
+  // "오늘 뭐가 좋을까" — 외부 기상 API 없이 월별 계절 규칙으로 추천하고(lib/activities.ts),
+  // 아직 순차 오픈 전인 액티비티는 제외한 뒤 스팟이 가장 많은 지역으로 바로 연결합니다.
+  const enabledMap: Record<ActivityType, boolean> = {
+    snorkeling: true,
+    sea_swimming: flags.activity_sea_swimming,
+    surfing: flags.activity_surfing,
+    freediving: flags.activity_freediving,
+    scuba: flags.activity_scuba,
+  };
+  const seasonal = getSeasonalRecommendation();
+  const todaysPicks = seasonal.activities
+    .filter((activity) => enabledMap[activity])
+    .map((activity) => {
+      const regionCounts = spots.reduce<Partial<Record<RegionCode, number>>>((acc, s) => {
+        const spotActivities = s.activities && s.activities.length > 0 ? s.activities : ["snorkeling"];
+        if (spotActivities.includes(activity)) {
+          acc[s.region] = (acc[s.region] ?? 0) + 1;
+        }
+        return acc;
+      }, {});
+      const [bestRegion, count] =
+        (Object.entries(regionCounts) as [RegionCode, number][]).sort((a, b) => b[1] - a[1])[0] ?? [];
+      return bestRegion ? { activity, region: bestRegion, count: count ?? 0 } : null;
+    })
+    .filter((x): x is { activity: ActivityType; region: RegionCode; count: number } => x !== null);
 
   return (
     <div>
@@ -44,9 +81,55 @@ export default async function HomePage() {
             >
               스팟 제보하기
             </Link>
+            <Link
+              href="/onboarding"
+              className="rounded-full border border-foam/30 px-6 py-2.5 text-sm text-sand/80 transition hover:border-foam hover:text-foam"
+            >
+              나에게 맞는 액티비티 찾기
+            </Link>
           </div>
+          <OnboardingRecall />
         </div>
       </section>
+
+      {todaysPicks.length > 0 && (
+        <section className="mx-auto max-w-6xl px-6 py-16">
+          <div className="mb-2 flex items-center gap-3">
+            <h2 className="font-serif text-2xl text-sand">오늘 뭐가 좋을까</h2>
+            <span className="rounded-full border border-foam/30 px-2 py-0.5 text-[10px] uppercase tracking-wider text-foam/60">
+              Seasonal Pick
+            </span>
+          </div>
+          <p className="mb-6 text-sm text-sand/50">{seasonal.reason}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {todaysPicks.map(({ activity, region, count }) => {
+              const meta = getActivityMeta(activity);
+              const regionMeta = getRegionMeta(region);
+              return (
+                <Link
+                  key={activity}
+                  href={`/regions/${region}/${activity}`}
+                  className="flex items-center justify-between rounded-xl border p-5 transition hover:brightness-110"
+                  style={{ borderColor: `${meta.color}40`, background: `${meta.color}0f` }}
+                >
+                  <div>
+                    <p className="flex items-center gap-2 text-lg font-medium text-sand">
+                      <span aria-hidden>{meta.icon}</span>
+                      {meta.label}
+                    </p>
+                    <p className="mt-1 text-xs text-sand/50">
+                      {regionMeta.name} · {count}곳
+                    </p>
+                  </div>
+                  <span className="text-sm" style={{ color: meta.color }}>
+                    보러가기 →
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="mx-auto max-w-6xl px-6 py-16">
         <h2 className="mb-6 font-serif text-2xl text-sand">지역 선택</h2>

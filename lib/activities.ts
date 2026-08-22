@@ -14,14 +14,31 @@ export interface ActivityMeta {
   color: string;
   /** feature_flags 키 (스노클링은 항상 활성화라 플래그가 없습니다). */
   featureFlag: `activity_${string}` | null;
+  /** 온보딩 카드 등에서 쓰는 한줄 설명. */
+  description: string;
 }
 
 export const ACTIVITIES: ActivityMeta[] = [
-  { key: "snorkeling", label: "스노클링", shortLabel: "스노클링", icon: "🤿", color: "#8fe3d8", featureFlag: null },
-  { key: "sea_swimming", label: "바다수영", shortLabel: "바다수영", icon: "🏊", color: "#1f8890", featureFlag: "activity_sea_swimming" },
-  { key: "surfing", label: "서핑", shortLabel: "서핑", icon: "🏄", color: "#ff6f5e", featureFlag: "activity_surfing" },
-  { key: "freediving", label: "프리다이빙", shortLabel: "프리다이빙", icon: "🫧", color: "#5b7fd6", featureFlag: "activity_freediving" },
-  { key: "scuba", label: "스쿠버다이빙", shortLabel: "스쿠버", icon: "🐙", color: "#a877e0", featureFlag: "activity_scuba" },
+  {
+    key: "snorkeling", label: "스노클링", shortLabel: "스노클링", icon: "🤿", color: "#8fe3d8", featureFlag: null,
+    description: "장비 없이도 시작하기 쉬운 입문 액티비티. 얕은 수심에서 물속 풍경을 즐겨요.",
+  },
+  {
+    key: "sea_swimming", label: "바다수영", shortLabel: "바다수영", icon: "🏊", color: "#1f8890", featureFlag: "activity_sea_swimming",
+    description: "탁 트인 바다에서 자유형으로 즐기는 오픈워터 수영.",
+  },
+  {
+    key: "surfing", label: "서핑", shortLabel: "서핑", icon: "🏄", color: "#ff6f5e", featureFlag: "activity_surfing",
+    description: "파도를 타는 역동적인 액티비티. 초보자 스쿨이 있는 스팟부터 시작해보세요.",
+  },
+  {
+    key: "freediving", label: "프리다이빙", shortLabel: "프리다이빙", icon: "🫧", color: "#5b7fd6", featureFlag: "activity_freediving",
+    description: "숨을 참고 잠수하는 프리다이빙. 반드시 버디와 함께, 공인 교육 이수 후 시작하세요.",
+  },
+  {
+    key: "scuba", label: "스쿠버다이빙", shortLabel: "스쿠버", icon: "🐙", color: "#a877e0", featureFlag: "activity_scuba",
+    description: "장비를 메고 깊은 수중을 탐험. PADI 등 공인 자격증이 필요해요.",
+  },
 ];
 
 export const ACTIVITY_LABEL: Record<ActivityType, string> = Object.fromEntries(
@@ -72,4 +89,34 @@ export function surfWaveTrafficLight(waveHeightMaxM: number | null): TrafficLigh
   if (waveHeightMaxM <= 1.2) return "good";
   if (waveHeightMaxM <= 2) return "caution";
   return "avoid";
+}
+
+// ------------------------------------------------------------------
+// 홈 "오늘 뭐가 좋을까" 모듈 — 외부 기상 API 없이, 달(月) 기준의 단순 계절 추천.
+// 실제 물때/파고/수온 API 연동 전까지의 잠정 로직입니다 (연동 시 이 함수를 교체).
+// ------------------------------------------------------------------
+export interface SeasonalRecommendation {
+  activities: ActivityType[];
+  reason: string;
+}
+
+export function getSeasonalRecommendation(date: Date = new Date()): SeasonalRecommendation {
+  const month = date.getMonth() + 1; // 1-12
+
+  if (month >= 6 && month <= 9) {
+    return {
+      activities: ["snorkeling", "sea_swimming", "surfing"],
+      reason: "수온이 가장 따뜻한 성수기예요. 장비 부담 없이 물놀이 액티비티를 즐기기 좋아요.",
+    };
+  }
+  if ((month >= 3 && month <= 5) || (month >= 10 && month <= 11)) {
+    return {
+      activities: ["surfing", "freediving"],
+      reason: "웨트슈트 시즌 — 스웰이 꾸준하고 사람도 붐비지 않아요.",
+    };
+  }
+  return {
+    activities: ["scuba", "freediving"],
+    reason: "수온이 낮아 드라이슈트/전문 장비를 갖춘 다이버 위주의 시즌이에요.",
+  };
 }
