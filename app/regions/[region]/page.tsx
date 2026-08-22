@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getAllSpots, getSpotsByRegion } from "@/lib/data";
 import { getFeatureFlags } from "@/lib/feature-flags";
@@ -5,6 +6,7 @@ import { RegionTileMap } from "@/components/region-tilemap";
 import { RegionKakaoMap } from "@/components/region-kakao-map";
 import { SpotCard } from "@/components/spot-card";
 import { ALL_REGIONS, getRegionMeta } from "@/lib/regions";
+import { ACTIVITIES } from "@/lib/activities";
 import type { RegionCode } from "@/lib/types/database";
 
 export function generateStaticParams() {
@@ -36,8 +38,21 @@ export default async function RegionPage({
   return (
     <div className="mx-auto max-w-6xl px-6 py-12">
       <p className="font-mono text-xs uppercase tracking-widest text-foam/60">Region</p>
-      <h1 className="mt-1 font-serif text-3xl text-sand">{meta.name} 스노클링 스팟</h1>
+      <h1 className="mt-1 font-serif text-3xl text-sand">{meta.name} 해양 액티비티 스팟</h1>
       <p className="mt-2 text-sm text-sand/50">총 {spots.length}곳의 스팟이 등록되어 있습니다.</p>
+
+      <div className="mt-4 flex flex-wrap gap-1.5">
+        {ACTIVITIES.map((a) => (
+          <Link
+            key={a.key}
+            href={`/regions/${regionCode}/${a.key}`}
+            className="rounded-full border px-3 py-1 text-xs font-medium transition"
+            style={{ borderColor: `${a.color}55`, color: a.color }}
+          >
+            {a.icon} {a.shortLabel}
+          </Link>
+        ))}
+      </div>
 
       <div className="mt-8">
         <RegionTileMap activeRegion={regionCode} spotCounts={spotCounts} />
