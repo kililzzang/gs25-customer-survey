@@ -15,8 +15,10 @@ export function ContributeSpotForm({ spotId, spotSlug }: { spotId: string; spotS
     deltaM: null,
     status: "idle",
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const parsedLat = lat ? Number(lat) : null;
   const parsedLng = lng ? Number(lng) : null;
@@ -24,6 +26,30 @@ export function ContributeSpotForm({ spotId, spotSlug }: { spotId: string; spotS
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setUploadError(null);
+
+    let uploadedPhotoId: string | null = null;
+
+    // 사진을 선택했다면 먼저 실제로 업로드합니다 (원본은 비공개 버킷, 워터마크본은 공개 버킷).
+    if (photoFile) {
+      try {
+        const form = new FormData();
+        form.append("file", photoFile);
+        form.append("spot_slug", spotSlug);
+        const res = await fetch("/api/uploads/photo", { method: "POST", body: form });
+        const json = await res.json();
+        if (!res.ok) {
+          setUploadError(json.error ?? "사진 업로드에 실패했습니다.");
+          setSubmitting(false);
+          return;
+        }
+        uploadedPhotoId = json.id;
+      } catch {
+        setUploadError("사진 업로드 중 오류가 발생했습니다.");
+        setSubmitting(false);
+        return;
+      }
+    }
 
     const payload = {
       exact_lat: parsedLat,
@@ -31,6 +57,7 @@ export function ContributeSpotForm({ spotId, spotSlug }: { spotId: string; spotS
       access_route: accessRoute,
       parking_tip: parkingTip,
       exif_gps_status: exifResult.status,
+      photo_id: uploadedPhotoId,
     };
 
     const supabase = createClient();
@@ -114,8 +141,17 @@ export function ContributeSpotForm({ spotId, spotSlug }: { spotId: string; spotS
 
       <div>
         <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">현장 인증 사진</p>
-        <ExifPhotoPicker reportedLat={parsedLat} reportedLng={parsedLng} onResult={(_, r) => setExifResult(r)} />
+        <ExifPhotoPicker
+          reportedLat={parsedLat}
+          reportedLng={parsedLng}
+          onResult={(file, r) => {
+            setPhotoFile(file);
+            setExifResult(r);
+          }}
+        />
       </div>
+
+      {uploadError && <p className="text-sm text-coral">{uploadError}</p>}
 
       <button
         type="submit"

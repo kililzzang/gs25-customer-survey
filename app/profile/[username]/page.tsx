@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getProfileByUsername, getAllBadges, getAllSpots } from "@/lib/data";
+import { getProfileByUsername, getAllBadges, getAllSpots, getUserCertifications } from "@/lib/data";
+import { getFeatureFlags } from "@/lib/feature-flags";
 
 const TIER_LABEL: Record<string, string> = {
   newbie: "뉴비",
@@ -9,18 +10,30 @@ const TIER_LABEL: Record<string, string> = {
   master: "마스터",
 };
 
+const CERT_ORG_LABEL: Record<string, string> = {
+  PADI: "PADI",
+  AIDA: "AIDA",
+  SSI: "SSI",
+  NAUI: "NAUI",
+  KOSDA: "KOSDA",
+  other: "기타",
+};
+
 export default async function ProfilePage({
   params,
 }: {
   params: Promise<{ username: string }>;
 }) {
   const { username } = await params;
-  const [profile, allSpots, allBadges] = await Promise.all([
+  const [profile, allSpots, allBadges, flags] = await Promise.all([
     getProfileByUsername(username),
     getAllSpots(),
     Promise.resolve(getAllBadges()),
+    getFeatureFlags(["certifications_profile"] as const),
   ]);
   if (!profile) notFound();
+
+  const certifications = flags.certifications_profile ? await getUserCertifications(username) : [];
 
   const spotBySlug = new Map(allSpots.map((s) => [s.slug, s]));
 
@@ -83,6 +96,42 @@ export default async function ProfilePage({
           })}
         </div>
       </section>
+
+      {/* 공인 자격증 (feature flag: certifications_profile) */}
+      {flags.certifications_profile && certifications.length > 0 && (
+        <section className="mt-10">
+          <h2 className="font-serif text-lg text-sand">공인 자격증</h2>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {certifications.map((cert) => (
+              <div
+                key={cert.id}
+                className="flex items-center justify-between rounded-xl border border-foam/15 bg-navy/40 p-4"
+              >
+                <div>
+                  <p className="flex items-center gap-2 text-sm text-sand">
+                    <span className="font-mono text-foam/80">{CERT_ORG_LABEL[cert.org] ?? cert.org}</span>
+                    {cert.level}
+                  </p>
+                  {cert.issued_at && (
+                    <p className="mt-1 text-xs text-sand/40">
+                      취득일 {new Date(cert.issued_at).toLocaleDateString("ko-KR")}
+                    </p>
+                  )}
+                </div>
+                {cert.verified ? (
+                  <span className="rounded-full border border-foam/40 bg-foam/10 px-2.5 py-1 text-[11px] text-foam">
+                    🎓 인증됨
+                  </span>
+                ) : (
+                  <span className="rounded-full border border-sand/20 px-2.5 py-1 text-[11px] text-sand/40">
+                    확인중
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* 방문 스탬프 지도 */}
       <section className="mt-10">

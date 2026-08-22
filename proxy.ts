@@ -1,9 +1,15 @@
 import type { NextRequest } from "next/server";
-import { updateSupabaseSession } from "@/lib/supabase/proxy";
+import { updateSupabaseSession, checkIpRateLimitForRequest } from "@/lib/supabase/proxy";
 
 // Next.js 16: `middleware.ts`가 `proxy.ts`로 개명되었습니다(동작은 동일).
 // https://nextjs.org/docs/app/api-reference/file-conventions/proxy
 export async function proxy(request: NextRequest) {
+  // 스팟 상세/관련 API에 한해 IP 기준 보조 rate limit (비로그인 스크래핑 억제).
+  const ipAllowed = await checkIpRateLimitForRequest(request);
+  if (!ipAllowed) {
+    return new Response("Too many requests. Please try again later.", { status: 429 });
+  }
+
   return updateSupabaseSession(request);
 }
 

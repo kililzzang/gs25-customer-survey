@@ -3,7 +3,7 @@ import { LoginForm } from "@/components/login-form";
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   return (
     <div className="mx-auto flex min-h-[60vh] max-w-sm flex-col justify-center px-6 py-12">
@@ -16,10 +16,19 @@ export default function LoginPage({
       <LoginErrorNotice searchParams={searchParams} />
 
       <div className="mt-8">
-        <LoginForm />
+        <LoginFormWithNext searchParams={searchParams} />
       </div>
     </div>
   );
+}
+
+async function LoginFormWithNext({
+  searchParams,
+}: {
+  searchParams: Promise<{ next?: string }>;
+}) {
+  const { next } = await searchParams;
+  return <LoginForm next={next} />;
 }
 
 async function LoginErrorNotice({

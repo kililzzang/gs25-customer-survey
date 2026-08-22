@@ -3,8 +3,11 @@ import type { SpotRow } from "@/lib/types/database";
 import { HiddenBadge } from "@/components/hidden-badge";
 import { GaugeBar } from "@/components/gauge-bar";
 import { SPOT_STATUS_LABEL } from "@/lib/regions";
+import { getActivityMeta } from "@/lib/activities";
 
 export function SpotCard({ spot }: { spot: SpotRow }) {
+  const activities = spot.activities && spot.activities.length > 0 ? spot.activities : (["snorkeling"] as const);
+
   return (
     <Link
       href={`/spots/${spot.slug}`}
@@ -18,6 +21,23 @@ export function SpotCard({ spot }: { spot: SpotRow }) {
           <p className="mt-1 text-xs text-sand/50">{SPOT_STATUS_LABEL[spot.status]}</p>
         </div>
         {spot.is_hidden && <HiddenBadge />}
+      </div>
+
+      <div className="flex flex-wrap gap-1.5" aria-label="지원 액티비티">
+        {activities.map((activity) => {
+          const meta = getActivityMeta(activity);
+          return (
+            <span
+              key={activity}
+              title={meta.label}
+              className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+              style={{ borderColor: `${meta.color}66`, color: meta.color }}
+            >
+              <span aria-hidden>{meta.icon}</span>
+              {meta.shortLabel}
+            </span>
+          );
+        })}
       </div>
 
       {spot.description && (

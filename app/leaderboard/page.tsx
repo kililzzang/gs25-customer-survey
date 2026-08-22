@@ -1,15 +1,45 @@
 import Link from "next/link";
 import { getLeaderboard } from "@/lib/data";
+import { getFeatureFlags } from "@/lib/feature-flags";
 import { LeaderboardTable } from "@/components/leaderboard-table";
+import { ACTIVITIES } from "@/lib/activities";
+import type { ActivityType, LeaderboardActivity } from "@/lib/types/database";
+
+const ACTIVITY_FLAG_KEYS = [
+  "activity_sea_swimming",
+  "activity_surfing",
+  "activity_freediving",
+  "activity_scuba",
+] as const;
+
+function isActivitySlug(value: string): value is ActivityType {
+  return ACTIVITIES.some((a) => a.key === value);
+}
 
 export default async function LeaderboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ track?: string }>;
+  searchParams: Promise<{ track?: string; activity?: string }>;
 }) {
-  const { track: trackParam } = await searchParams;
+  const { track: trackParam, activity: activityParam } = await searchParams;
   const track = trackParam === "core" ? "core" : "general";
-  const entries = await getLeaderboard(track);
+  // 일반 트랙은 액티비티 구분이 없어 항상 'all' 기준입니다.
+  const activity: LeaderboardActivity =
+    track === "core" && activityParam && isActivitySlug(activityParam) ? activityParam : "all";
+
+  const [entries, flags] = await Promise.all([
+    getLeaderboard(track, activity),
+    getFeatureFlags(ACTIVITY_FLAG_KEYS),
+  ]);
+
+  const enabledMap: Record<ActivityType, boolean> = {
+    snorkeling: true,
+    sea_swimming: flags.activity_sea_swimming,
+    surfing: flags.activity_surfing,
+    freediving: flags.activity_freediving,
+    scuba: flags.activity_scuba,
+  };
+  const activityFilterOptions = ACTIVITIES.filter((a) => enabledMap[a.key]);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
@@ -33,6 +63,35 @@ export default async function LeaderboardPage({
           ? "최다 업로드 · 최다 좋아요 기준"
           : "히든 스팟 발굴왕 · 상세정보(좌표/접근로/주차팁) 기여왕 — 가중치가 별도로 적용됩니다."}
       </p>
+
+      {track === "core" && (
+        <div className="mt-4 flex flex-wrap gap-1.5">
+          <Link
+            href="/leaderboard?track=core"
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+              activity === "all"
+                ? "border-foam bg-foam text-navy-deep"
+                : "border-foam/20 text-sand/60 hover:border-foam/50"
+            }`}
+          >
+            전체
+          </Link>
+          {activityFilterOptions.map((a) => (
+            <Link
+              key={a.key}
+              href={`/leaderboard?track=core&activity=${a.key}`}
+              className="rounded-full border px-3 py-1 text-xs font-medium transition"
+              style={
+                activity === a.key
+                  ? { borderColor: a.color, color: "#0a2e36", background: a.color }
+                  : { borderColor: `${a.color}55`, color: a.color }
+              }
+            >
+              {a.icon} {a.shortLabel}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <div className="mt-6">
         <LeaderboardTable entries={entries} track={track} />

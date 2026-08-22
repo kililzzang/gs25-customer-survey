@@ -180,6 +180,12 @@ export function SubmitSpotForm() {
 
       <div>
         <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">인증 사진</p>
+        {/* 신규 스팟은 이 시점에 spots row가 아직 없어(제보 승인 후 생성) 실제
+            업로드(app/api/uploads/photo)를 연결할 수 없습니다 — spot_photos.spot_id가
+            not null이라 대상 스팟이 필요합니다. EXIF 사전 확인만 제공하고, 실제 파일은
+            제보가 승인된 뒤 /spots/[slug]/contribute에서 업로드하는 흐름을 권장합니다.
+            (spot_photos.spot_id를 nullable로 바꿔 "제보 대기중" 사진을 붙이는 대안도
+            있지만, 이건 스키마/승인 플로우에 영향을 주는 설계 결정이라 보류합니다.) */}
         <ExifPhotoPicker reportedLat={parsedLat} reportedLng={parsedLng} onResult={(_, r) => setExifResult(r)} />
       </div>
 

@@ -1,10 +1,74 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getSpotBySlug, getSpotLockedInfo, getSpotReviews } from "@/lib/data";
+import {
+  getSpotBySlug,
+  getSpotLockedInfo,
+  getSpotAccessSteps,
+  getSpotParkingOptions,
+  getSpotEmergencyFacilities,
+  getSpotReviews,
+  getSpotSpecies,
+  getSpotCheckinInfo,
+  getSpotAccessStepRevisions,
+  getSpotActivityDifficulty,
+  getSpotSurfConditions,
+  getActivitySafetyTemplate,
+} from "@/lib/data";
+import { getCurrentUser } from "@/lib/auth";
+import { getFeatureFlags } from "@/lib/feature-flags";
+import { getSunTimes, formatSunTime } from "@/lib/sun";
 import { GaugeBar } from "@/components/gauge-bar";
 import { HiddenBadge } from "@/components/hidden-badge";
-import { AdGate } from "@/components/ad-gate";
-import { CURRENT_LEVEL_LABEL, SPOT_STATUS_LABEL, getRegionMeta } from "@/lib/regions";
+import { DetailUnlockGate } from "@/components/detail-unlock-gate";
+import { KakaoMap } from "@/components/kakao-map";
+import { KakaoRoadview } from "@/components/kakao-roadview";
+import { AccessSteps } from "@/components/access-steps";
+import { ParkingOptions } from "@/components/parking-options";
+import { EmergencyFacilities } from "@/components/emergency-facilities";
+import { SosButton } from "@/components/sos-button";
+import { SpeciesTags } from "@/components/species-tags";
+import { AccessHistory } from "@/components/access-history";
+import { CheckinButton } from "@/components/checkin-button";
+import { TrafficLight } from "@/components/traffic-light";
+import {
+  getActivityMeta,
+  TERRAIN_LABEL,
+  currentLevelTrafficLight,
+  surfWaveTrafficLight,
+} from "@/lib/activities";
+import {
+  CURRENT_LEVEL_LABEL,
+  SPOT_STATUS_LABEL,
+  CROWD_TAG_LABEL,
+  DIFFICULTY_LABEL,
+  getRegionMeta,
+} from "@/lib/regions";
+import type { ActivityType } from "@/lib/types/database";
+
+const SPOT_PAGE_FLAGS = [
+  // 1단계
+  "map_pin_route_polyline",
+  "kakao_roadview",
+  "access_step_cards",
+  "parking_options_detail",
+  "estimated_walk_time",
+  "restroom_shower_markers",
+  "nearest_emergency_facilities",
+  "sos_button",
+  // 2단계 (외부 API 불필요한 것만 활성화)
+  "sunrise_sunset_times",
+  "route_based_partner_recs",
+  "gpx_route_download",
+  // 3단계 (외부 API 불필요한 것만 활성화)
+  "live_checkin_crowd_count",
+  "species_field_guide",
+  "access_route_change_history",
+  // 해양 액티비티 통합 가이드 확장 — 순차 오픈
+  "activity_sea_swimming",
+  "activity_surfing",
+  "activity_freediving",
+  "activity_scuba",
+] as const;
 
 export default async function SpotDetailPage({
   params,
@@ -15,19 +79,78 @@ export default async function SpotDetailPage({
   const { spot, safety, partners } = await getSpotBySlug(slug);
   if (!spot) notFound();
 
-  // 목업 단계: 항상 잠금정보를 조회해 AdGate에 넘기고, 실제 노출 여부는 클라이언트(AdGate)가
-  // 광고 시청/멤버십 상태에 따라 결정합니다. 실 서비스에서는 인증된 요청마다
-  // unlock_spot_details RPC가 ad_unlocks/멤버십을 서버에서 검증한 뒤에만 값을 반환합니다.
-  const [lockedInfo, reviews] = await Promise.all([
-    getSpotLockedInfo(slug, { unlocked: true }),
+  const [
+    user,
+    lockedInfo,
+    accessSteps,
+    parkingOptions,
+    emergencyFacilities,
+    reviews,
+    species,
+    checkinInfo,
+    accessHistory,
+    activityDifficulty,
+    surfConditions,
+    flags,
+  ] = await Promise.all([
+    getCurrentUser(),
+    getSpotLockedInfo(slug),
+    getSpotAccessSteps(spot.id, slug),
+    getSpotParkingOptions(spot.id, slug),
+    getSpotEmergencyFacilities(spot.id, slug),
     getSpotReviews(slug, spot.id),
+    getSpotSpecies(spot.id, slug),
+    getSpotCheckinInfo(spot.id, slug),
+    getSpotAccessStepRevisions(spot.id, slug),
+    getSpotActivityDifficulty(spot.id, slug),
+    getSpotSurfConditions(spot.id, slug),
+    getFeatureFlags(SPOT_PAGE_FLAGS),
   ]);
 
+  // 일출/일몰은 대략 위치(공개 정보)만으로 순수 계산 — 외부 API 불필요, 게이트 없음.
+  const sunTimes = getSunTimes(spot.approx_lat, spot.approx_lng);
+
+  // 이 스팟이 지원하는 액티비티 중, 순차 오픈 플래그가 켜진 것만 "정식 노출" 대상으로 취급합니다.
+  // (뱃지 자체는 정보성이라 플래그와 무관하게 항상 보여주고, 아래 전용 섹션들만 플래그로 게이트합니다)
+  const spotActivities: ActivityType[] =
+    spot.activities && spot.activities.length > 0 ? spot.activities : ["snorkeling"];
+  const activityFlagMap: Record<ActivityType, boolean> = {
+    snorkeling: true,
+    sea_swimming: flags.activity_sea_swimming,
+    surfing: flags.activity_surfing,
+    freediving: flags.activity_freediving,
+    scuba: flags.activity_scuba,
+  };
+  const enabledActivities = spotActivities.filter((a) => activityFlagMap[a]);
+  const safetyTemplates = (
+    await Promise.all(enabledActivities.map((a) => getActivitySafetyTemplate(a)))
+  ).filter((t): t is NonNullable<typeof t> => t !== null);
+
+  const isLoggedIn = !!user;
+  const hasUnlockedContent = !!lockedInfo;
+  // 목업 모드에서는 데모 편의를 위해 lockedInfo/accessSteps/parkingOptions를
+  // 로그인 여부와 무관하게 항상 채워 반환합니다 (lib/data.ts 참고) — 그래서
+  // 실제로 클라이언트에 노출할지는 반드시 isLoggedIn까지 함께 확인합니다.
+  const unlocked = isLoggedIn && hasUnlockedContent;
   const regionMeta = getRegionMeta(spot.region);
   const avgRating =
     reviews.length > 0
       ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
       : null;
+
+  // 카카오맵(클라이언트 컴포넌트) 프롭으로 넘길 좌표만 최소 형태로 추출합니다.
+  // (제목/설명 등 나머지 필드까지 통째로 넘기면 불필요하게 클라이언트 페이로드에 실립니다)
+  const routeStepPoints = accessSteps
+    .filter((s): s is typeof s & { lat: number; lng: number } => s.lat != null && s.lng != null)
+    .map((s) => ({ lat: s.lat, lng: s.lng }));
+  const parkingMapPins = parkingOptions
+    .filter((p): p is typeof p & { lat: number; lng: number } => p.lat != null && p.lng != null)
+    .map((p) => ({ lat: p.lat, lng: p.lng, label: p.label, type: p.parking_type }));
+
+  const bannerPartners = partners.filter((p) => p.listing_type === "rental" || p.listing_type === "tour");
+  const routePartners = partners.filter(
+    (p) => p.listing_type === "route_food" || p.listing_type === "route_cafe"
+  );
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-12">
@@ -45,13 +168,41 @@ export default async function SpotDetailPage({
             <h1 className="font-serif text-3xl text-sand">{spot.name}</h1>
             {spot.is_hidden && <HiddenBadge size="md" />}
           </div>
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="지원 액티비티">
+            {spotActivities.map((activity) => {
+              const meta = getActivityMeta(activity);
+              const difficulty = activityDifficulty.find((d) => d.activity === activity)?.difficulty;
+              return (
+                <span
+                  key={activity}
+                  className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium"
+                  style={{ borderColor: `${meta.color}66`, color: meta.color }}
+                >
+                  <span aria-hidden>{meta.icon}</span>
+                  {meta.label}
+                  {difficulty && <span className="text-sand/40">· {DIFFICULTY_LABEL[difficulty]}</span>}
+                </span>
+              );
+            })}
+            {spot.terrain && (
+              <span className="rounded-full border border-sand/20 px-2.5 py-1 text-xs text-sand/60">
+                {TERRAIN_LABEL[spot.terrain]}
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-sm text-sand/50">
-            {SPOT_STATUS_LABEL[spot.status]} · 신뢰도{" "}
+            {SPOT_STATUS_LABEL[spot.status]}
+            {spot.subregion && <> · {spot.subregion}</>} · 신뢰도{" "}
             <span className="font-mono text-foam/80">{spot.trust_score}</span>
             {spot.last_verified_at && (
               <> · 최근 검증 {new Date(spot.last_verified_at).toLocaleDateString("ko-KR")}</>
             )}
           </p>
+          {!spot.coordinates_verified && (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-coral/30 bg-coral/10 px-3 py-1 text-xs text-coral">
+              ⚠ 좌표 미검증 — 지도 기준 추정 위치이며 실사 검증 전입니다
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           <button className="rounded-full border border-foam/30 px-4 py-2 text-sm text-sand/80 transition hover:border-foam hover:text-foam">
@@ -65,6 +216,25 @@ export default async function SpotDetailPage({
           </Link>
         </div>
       </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-sand/60">
+        {flags.sunrise_sunset_times && (
+          <span>
+            🌅 {formatSunTime(sunTimes.sunrise, spot.approx_lng)} · 🌇{" "}
+            {formatSunTime(sunTimes.sunset, spot.approx_lng)}
+          </span>
+        )}
+      </div>
+
+      {flags.live_checkin_crowd_count && (
+        <div className="mt-4">
+          <CheckinButton
+            spotId={spot.id}
+            initialActiveCount={checkinInfo.activeCount}
+            initialIsCheckedIn={checkinInfo.isCheckedIn}
+          />
+        </div>
+      )}
 
       {/* 사진 (목업 플레이스홀더) */}
       <div className="depth-lines mt-8 flex aspect-[16/7] items-center justify-center rounded-xl border border-foam/15 bg-navy/50 text-sand/30">
@@ -98,14 +268,89 @@ export default async function SpotDetailPage({
           />
           <GaugeBar label="수온" value={spot.water_temp_c} max={30} unit="℃" />
         </div>
+        <div className="mt-4 border-t border-foam/10 pt-4">
+          <TrafficLight
+            level={currentLevelTrafficLight(spot.current_level)}
+            note="스노클링·바다수영 초보자 기준 조류 신호등"
+          />
+        </div>
       </section>
+
+      {enabledActivities.includes("surfing") && surfConditions && (
+        <section className="mt-6 rounded-xl border border-foam/15 bg-navy/50 p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-lg text-sand">🏄 서핑 컨디션</h2>
+            <TrafficLight
+              level={surfWaveTrafficLight(surfConditions.wave_height_max_m)}
+              note="초보 서퍼 기준 신호등"
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            <GaugeBar
+              label="파고"
+              value={surfConditions.wave_height_max_m}
+              max={4}
+              unit="m"
+              formatted={
+                surfConditions.wave_height_min_m != null && surfConditions.wave_height_max_m != null
+                  ? `${surfConditions.wave_height_min_m}–${surfConditions.wave_height_max_m}m`
+                  : undefined
+              }
+            />
+            {surfConditions.swell_period_sec != null && (
+              <GaugeBar label="스웰 주기" value={surfConditions.swell_period_sec} max={20} unit="초" />
+            )}
+            <div>
+              <p className="text-xs uppercase tracking-wider text-sand/50">바람 방향</p>
+              <p className="mt-1 text-sand">{surfConditions.wind_direction ?? "정보없음"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-sand/50">브레이크 타입</p>
+              <p className="mt-1 text-sand">
+                {surfConditions.break_type === "beach_break"
+                  ? "비치 브레이크"
+                  : surfConditions.break_type === "reef_break"
+                    ? "리프 브레이크"
+                    : surfConditions.break_type === "point_break"
+                      ? "포인트 브레이크"
+                      : "정보없음"}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {flags.species_field_guide && (
+        <section className="mt-6 rounded-xl border border-foam/15 bg-navy/50 p-6">
+          <h2 className="font-serif text-lg text-sand">관찰 가능 생물</h2>
+          <div className="mt-3">
+            <SpeciesTags species={species} />
+          </div>
+        </section>
+      )}
+
+      {/* 지도 — 대략 위치는 항상 공개, 정확한 핀/경로는 로그인 후 */}
+      {flags.map_pin_route_polyline && (
+        <section className="mt-6">
+          <KakaoMap
+            approxCenter={{ lat: spot.approx_lat, lng: spot.approx_lng }}
+            exactPin={
+              unlocked && lockedInfo?.exact_lat != null && lockedInfo?.exact_lng != null
+                ? { lat: lockedInfo.exact_lat, lng: lockedInfo.exact_lng }
+                : null
+            }
+            routeSteps={unlocked ? routeStepPoints : []}
+            parkingPins={unlocked ? parkingMapPins : []}
+          />
+        </section>
+      )}
 
       {/* 안전 정보 — 게이트 예외, 항상 무료 공개 */}
       {safety && (
         <section className="mt-6 rounded-xl border border-coral/30 bg-coral/5 p-6">
           <h2 className="font-serif text-lg text-coral">안전 정보</h2>
           <p className="mt-1 text-[11px] uppercase tracking-wider text-coral/70">
-            항상 무료 공개 · 광고 게이트 예외
+            항상 무료 공개 · 로그인 게이트 예외
           </p>
           {safety.current_warning && (
             <p className="mt-3 text-sm text-sand/80">⚠ {safety.current_warning}</p>
@@ -117,18 +362,120 @@ export default async function SpotDetailPage({
               </li>
             ))}
           </ul>
+          {flags.nearest_emergency_facilities && (
+            <EmergencyFacilities facilities={emergencyFacilities} />
+          )}
+          {safetyTemplates.length > 0 && (
+            <ul className="mt-4 space-y-2 border-t border-coral/20 pt-4">
+              {safetyTemplates.map((t) => {
+                const meta = getActivityMeta(t.activity);
+                return (
+                  <li key={t.activity} className="text-sm">
+                    <span className="font-medium text-sand/90">
+                      {meta.icon} {meta.label} · {t.title}
+                    </span>
+                    <p className="mt-0.5 text-sand/70">{t.body}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 
-      {/* 잠금 정보 — 광고 게이트 */}
-      <section className="mt-6">
-        <AdGate spotId={spot.id} lockedInfo={lockedInfo} />
+      {flags.sos_button && (
+        <section className="mt-4">
+          <SosButton spotName={spot.name} />
+        </section>
+      )}
+
+      {/* 정확한 위치와 접근 방법 — 로그인 게이트 */}
+      <section className="mt-6 space-y-4">
+        <DetailUnlockGate isLoggedIn={isLoggedIn} hasContent={hasUnlockedContent} spotSlug={spot.slug}>
+          {() => (
+          <>
+          <div className="rounded-xl border border-foam/25 bg-teal/20 p-5">
+            <h3 className="font-serif text-lg text-foam">상세 접근 정보</h3>
+            {lockedInfo && (
+              <dl className="mt-3 space-y-3 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-wider text-sand/50">정확한 좌표</dt>
+                  <dd className="font-mono text-sand">
+                    {lockedInfo.exact_lat?.toFixed(5)}, {lockedInfo.exact_lng?.toFixed(5)}
+                  </dd>
+                </div>
+                {lockedInfo.access_route && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-sand/50">접근 경로</dt>
+                    <dd className="text-sand/80">{lockedInfo.access_route}</dd>
+                  </div>
+                )}
+                {lockedInfo.parking_tip && (
+                  <div>
+                    <dt className="text-xs uppercase tracking-wider text-sand/50">주차 팁</dt>
+                    <dd className="text-sand/80">{lockedInfo.parking_tip}</dd>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-4 pt-1 text-xs text-sand/60">
+                  {flags.estimated_walk_time && lockedInfo.estimated_walk_minutes != null && (
+                    <span>🚶 도보 약 {lockedInfo.estimated_walk_minutes}분</span>
+                  )}
+                  {flags.restroom_shower_markers && (
+                    <>
+                      <span>🚻 화장실 {lockedInfo.has_restroom ? "있음" : "없음"}</span>
+                      <span>🚿 샤워실 {lockedInfo.has_shower ? "있음" : "없음"}</span>
+                    </>
+                  )}
+                </div>
+              </dl>
+            )}
+          </div>
+
+          {flags.kakao_roadview && lockedInfo?.exact_lat != null && lockedInfo?.exact_lng != null && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">진입로 로드뷰</p>
+              <KakaoRoadview lat={lockedInfo.exact_lat} lng={lockedInfo.exact_lng} />
+            </div>
+          )}
+
+          {flags.access_step_cards && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">단계별 접근 안내</p>
+              <AccessSteps steps={accessSteps} />
+            </div>
+          )}
+
+          {flags.parking_options_detail && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">주차 옵션</p>
+              <ParkingOptions options={parkingOptions} />
+            </div>
+          )}
+
+          {flags.gpx_route_download && routeStepPoints.length > 0 && (
+            <a
+              href={`/api/spots/${spot.slug}/gpx`}
+              className="inline-flex w-fit items-center gap-2 rounded-full border border-foam/25 px-4 py-2 text-sm text-sand/80 transition hover:border-foam hover:text-foam"
+            >
+              ⬇ GPX 경로 파일 다운로드
+            </a>
+          )}
+
+          {flags.access_route_change_history && (
+            <div>
+              <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">접근로 변경 이력</p>
+              <AccessHistory revisions={accessHistory} />
+            </div>
+          )}
+          </>
+          )}
+        </DetailUnlockGate>
       </section>
 
-      {/* 제휴 배너 */}
-      {partners.length > 0 && (
+      {/* 제휴 배너 (장비대여/투어) */}
+      {bannerPartners.length > 0 && (
         <section className="mt-6 space-y-3">
-          {partners.map((p) => (
+          {bannerPartners.map((p) => (
             <a
               key={p.id}
               href={p.cta_url ?? "#"}
@@ -145,6 +492,30 @@ export default async function SpotDetailPage({
               </span>
             </a>
           ))}
+        </section>
+      )}
+
+      {/* 경로 기반 로컬 제휴처 추천 (17번) — 가는 길목 맛집/카페 */}
+      {flags.route_based_partner_recs && routePartners.length > 0 && (
+        <section className="mt-6">
+          <p className="mb-2 text-xs uppercase tracking-wider text-sand/50">가는 길에 들러보세요</p>
+          <div className="space-y-2">
+            {routePartners.map((p) => (
+              <a
+                key={p.id}
+                href={p.cta_url ?? "#"}
+                className="flex items-center justify-between rounded-lg border border-foam/10 bg-navy/40 px-4 py-2.5 text-sm transition hover:border-foam/30"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full border border-foam/20 px-2 py-0.5 text-[10px] text-foam/70">
+                    {p.listing_type === "route_food" ? "맛집" : "카페"}
+                  </span>
+                  <span className="text-sand">{p.partner_name}</span>
+                </span>
+                <span className="text-xs text-foam/60">{p.cta_label}</span>
+              </a>
+            ))}
+          </div>
         </section>
       )}
 
@@ -167,11 +538,16 @@ export default async function SpotDetailPage({
                   <span className="font-mono text-foam/80">{"★".repeat(r.rating)}</span>
                 </div>
                 <p className="mt-2 text-sm text-sand/70">{r.body}</p>
-                {r.visited_at && (
-                  <p className="mt-2 text-[11px] text-sand/30">
-                    방문일 {new Date(r.visited_at).toLocaleDateString("ko-KR")}
-                  </p>
-                )}
+                <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-sand/30">
+                  {r.crowd_tag && (
+                    <span className="rounded-full border border-foam/20 px-2 py-0.5 text-foam/60">
+                      {CROWD_TAG_LABEL[r.crowd_tag]}
+                    </span>
+                  )}
+                  {r.visited_at && (
+                    <span>방문일 {new Date(r.visited_at).toLocaleDateString("ko-KR")}</span>
+                  )}
+                </div>
               </div>
             ))
           )}
