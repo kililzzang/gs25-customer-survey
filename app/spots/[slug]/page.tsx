@@ -10,6 +10,9 @@ import {
   getSpotSpecies,
   getSpotCheckinInfo,
   getSpotAccessStepRevisions,
+  getSpotActivityDifficulty,
+  getSpotSurfConditions,
+  getActivitySafetyTemplate,
 } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeatureFlags } from "@/lib/feature-flags";
@@ -26,12 +29,21 @@ import { SosButton } from "@/components/sos-button";
 import { SpeciesTags } from "@/components/species-tags";
 import { AccessHistory } from "@/components/access-history";
 import { CheckinButton } from "@/components/checkin-button";
+import { TrafficLight } from "@/components/traffic-light";
+import {
+  getActivityMeta,
+  TERRAIN_LABEL,
+  currentLevelTrafficLight,
+  surfWaveTrafficLight,
+} from "@/lib/activities";
 import {
   CURRENT_LEVEL_LABEL,
   SPOT_STATUS_LABEL,
   CROWD_TAG_LABEL,
+  DIFFICULTY_LABEL,
   getRegionMeta,
 } from "@/lib/regions";
+import type { ActivityType } from "@/lib/types/database";
 
 const SPOT_PAGE_FLAGS = [
   // 1단계
@@ -51,6 +63,11 @@ const SPOT_PAGE_FLAGS = [
   "live_checkin_crowd_count",
   "species_field_guide",
   "access_route_change_history",
+  // 해양 액티비티 통합 가이드 확장 — 순차 오픈
+  "activity_sea_swimming",
+  "activity_surfing",
+  "activity_freediving",
+  "activity_scuba",
 ] as const;
 
 export default async function SpotDetailPage({
@@ -72,6 +89,8 @@ export default async function SpotDetailPage({
     species,
     checkinInfo,
     accessHistory,
+    activityDifficulty,
+    surfConditions,
     flags,
   ] = await Promise.all([
     getCurrentUser(),
@@ -83,11 +102,29 @@ export default async function SpotDetailPage({
     getSpotSpecies(spot.id, slug),
     getSpotCheckinInfo(spot.id, slug),
     getSpotAccessStepRevisions(spot.id, slug),
+    getSpotActivityDifficulty(spot.id, slug),
+    getSpotSurfConditions(spot.id, slug),
     getFeatureFlags(SPOT_PAGE_FLAGS),
   ]);
 
   // 일출/일몰은 대략 위치(공개 정보)만으로 순수 계산 — 외부 API 불필요, 게이트 없음.
   const sunTimes = getSunTimes(spot.approx_lat, spot.approx_lng);
+
+  // 이 스팟이 지원하는 액티비티 중, 순차 오픈 플래그가 켜진 것만 "정식 노출" 대상으로 취급합니다.
+  // (뱃지 자체는 정보성이라 플래그와 무관하게 항상 보여주고, 아래 전용 섹션들만 플래그로 게이트합니다)
+  const spotActivities: ActivityType[] =
+    spot.activities && spot.activities.length > 0 ? spot.activities : ["snorkeling"];
+  const activityFlagMap: Record<ActivityType, boolean> = {
+    snorkeling: true,
+    sea_swimming: flags.activity_sea_swimming,
+    surfing: flags.activity_surfing,
+    freediving: flags.activity_freediving,
+    scuba: flags.activity_scuba,
+  };
+  const enabledActivities = spotActivities.filter((a) => activityFlagMap[a]);
+  const safetyTemplates = (
+    await Promise.all(enabledActivities.map((a) => getActivitySafetyTemplate(a)))
+  ).filter((t): t is NonNullable<typeof t> => t !== null);
 
   const isLoggedIn = !!user;
   const hasUnlockedContent = !!lockedInfo;
@@ -130,6 +167,28 @@ export default async function SpotDetailPage({
           <div className="flex items-center gap-3">
             <h1 className="font-serif text-3xl text-sand">{spot.name}</h1>
             {spot.is_hidden && <HiddenBadge size="md" />}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5" aria-label="지원 액티비티">
+            {spotActivities.map((activity) => {
+              const meta = getActivityMeta(activity);
+              const difficulty = activityDifficulty.find((d) => d.activity === activity)?.difficulty;
+              return (
+                <span
+                  key={activity}
+                  className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium"
+                  style={{ borderColor: `${meta.color}66`, color: meta.color }}
+                >
+                  <span aria-hidden>{meta.icon}</span>
+                  {meta.label}
+                  {difficulty && <span className="text-sand/40">· {DIFFICULTY_LABEL[difficulty]}</span>}
+                </span>
+              );
+            })}
+            {spot.terrain && (
+              <span className="rounded-full border border-sand/20 px-2.5 py-1 text-xs text-sand/60">
+                {TERRAIN_LABEL[spot.terrain]}
+              </span>
+            )}
           </div>
           <p className="mt-2 text-sm text-sand/50">
             {SPOT_STATUS_LABEL[spot.status]}
@@ -209,7 +268,57 @@ export default async function SpotDetailPage({
           />
           <GaugeBar label="수온" value={spot.water_temp_c} max={30} unit="℃" />
         </div>
+        <div className="mt-4 border-t border-foam/10 pt-4">
+          <TrafficLight
+            level={currentLevelTrafficLight(spot.current_level)}
+            note="스노클링·바다수영 초보자 기준 조류 신호등"
+          />
+        </div>
       </section>
+
+      {enabledActivities.includes("surfing") && surfConditions && (
+        <section className="mt-6 rounded-xl border border-foam/15 bg-navy/50 p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-serif text-lg text-sand">🏄 서핑 컨디션</h2>
+            <TrafficLight
+              level={surfWaveTrafficLight(surfConditions.wave_height_max_m)}
+              note="초보 서퍼 기준 신호등"
+            />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-5 sm:grid-cols-4">
+            <GaugeBar
+              label="파고"
+              value={surfConditions.wave_height_max_m}
+              max={4}
+              unit="m"
+              formatted={
+                surfConditions.wave_height_min_m != null && surfConditions.wave_height_max_m != null
+                  ? `${surfConditions.wave_height_min_m}–${surfConditions.wave_height_max_m}m`
+                  : undefined
+              }
+            />
+            {surfConditions.swell_period_sec != null && (
+              <GaugeBar label="스웰 주기" value={surfConditions.swell_period_sec} max={20} unit="초" />
+            )}
+            <div>
+              <p className="text-xs uppercase tracking-wider text-sand/50">바람 방향</p>
+              <p className="mt-1 text-sand">{surfConditions.wind_direction ?? "정보없음"}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-sand/50">브레이크 타입</p>
+              <p className="mt-1 text-sand">
+                {surfConditions.break_type === "beach_break"
+                  ? "비치 브레이크"
+                  : surfConditions.break_type === "reef_break"
+                    ? "리프 브레이크"
+                    : surfConditions.break_type === "point_break"
+                      ? "포인트 브레이크"
+                      : "정보없음"}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {flags.species_field_guide && (
         <section className="mt-6 rounded-xl border border-foam/15 bg-navy/50 p-6">
@@ -255,6 +364,21 @@ export default async function SpotDetailPage({
           </ul>
           {flags.nearest_emergency_facilities && (
             <EmergencyFacilities facilities={emergencyFacilities} />
+          )}
+          {safetyTemplates.length > 0 && (
+            <ul className="mt-4 space-y-2 border-t border-coral/20 pt-4">
+              {safetyTemplates.map((t) => {
+                const meta = getActivityMeta(t.activity);
+                return (
+                  <li key={t.activity} className="text-sm">
+                    <span className="font-medium text-sand/90">
+                      {meta.icon} {meta.label} · {t.title}
+                    </span>
+                    <p className="mt-0.5 text-sand/70">{t.body}</p>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </section>
       )}
