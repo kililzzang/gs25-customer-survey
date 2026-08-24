@@ -221,6 +221,20 @@ export type CommunityReplyRow = {
   created_at: string;
 }
 
+export type CreatorLinkType = "blog" | "youtube" | "other";
+
+export type SpotCreatorLinkRow = {
+  id: string;
+  spot_id: string;
+  user_id: string;
+  username?: string;
+  link_type: CreatorLinkType;
+  url: string;
+  title: string;
+  is_hidden: boolean;
+  created_at: string;
+}
+
 export type SpotPhotoRow = {
   id: string;
   spot_id: string;
@@ -397,6 +411,7 @@ export interface Database {
       user_certifications: TableShape<UserCertificationRow>;
       community_posts: TableShape<CommunityPostRow>;
       community_replies: TableShape<CommunityReplyRow>;
+      spot_creator_links: TableShape<SpotCreatorLinkRow>;
     };
     Views: Record<string, never>;
     Functions: {

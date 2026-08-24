@@ -13,6 +13,7 @@ import {
   getSpotActivityDifficulty,
   getSpotSurfConditions,
   getActivitySafetyTemplate,
+  getSpotCreatorLinks,
 } from "@/lib/data";
 import { getCurrentUser } from "@/lib/auth";
 import { getFeatureFlags } from "@/lib/feature-flags";
@@ -30,6 +31,8 @@ import { SpeciesTags } from "@/components/species-tags";
 import { AccessHistory } from "@/components/access-history";
 import { CheckinButton } from "@/components/checkin-button";
 import { TrafficLight } from "@/components/traffic-light";
+import { CreatorLinksList } from "@/components/creator-links-list";
+import { CreatorLinkForm } from "@/components/creator-link-form";
 import {
   getActivityMeta,
   TERRAIN_LABEL,
@@ -68,6 +71,8 @@ const SPOT_PAGE_FLAGS = [
   "activity_surfing",
   "activity_freediving",
   "activity_scuba",
+  // 크리에이터 링크(블로그/유튜브)
+  "creator_links",
 ] as const;
 
 export default async function SpotDetailPage({
@@ -91,6 +96,7 @@ export default async function SpotDetailPage({
     accessHistory,
     activityDifficulty,
     surfConditions,
+    creatorLinks,
     flags,
   ] = await Promise.all([
     getCurrentUser(),
@@ -104,6 +110,7 @@ export default async function SpotDetailPage({
     getSpotAccessStepRevisions(spot.id, slug),
     getSpotActivityDifficulty(spot.id, slug),
     getSpotSurfConditions(spot.id, slug),
+    getSpotCreatorLinks(spot.id, slug),
     getFeatureFlags(SPOT_PAGE_FLAGS),
   ]);
 
@@ -515,6 +522,22 @@ export default async function SpotDetailPage({
                 <span className="text-xs text-foam/60">{p.cta_label}</span>
               </a>
             ))}
+          </div>
+        </section>
+      )}
+
+      {/* 크리에이터 링크(블로그/유튜브) — 정보 제공자 유입 유도, 승인 없이 즉시 공개 */}
+      {flags.creator_links && (
+        <section className="mt-10">
+          <h2 className="font-serif text-lg text-sand">관련 영상 · 블로그</h2>
+          <p className="mt-1 text-xs text-sand/40">
+            방문자가 남긴 콘텐츠입니다. 도움이 됐다면 방문해서 응원해주세요.
+          </p>
+          <div className="mt-4">
+            <CreatorLinksList links={creatorLinks} />
+          </div>
+          <div className="mt-4">
+            <CreatorLinkForm spotId={spot.id} />
           </div>
         </section>
       )}
