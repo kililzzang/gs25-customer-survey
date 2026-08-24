@@ -112,10 +112,13 @@ create policy "emergency facilities always publicly readable" on spot_emergency_
 
 -- ------------------------------------------------------------------
 -- unlock_spot_details RPC 확장 — 소요시간/화장실/샤워실 필드 함께 반환
--- (0008에서 정의한 시그니처에 새 컬럼 추가)
+-- (0008에서 정의한 시그니처에 새 컬럼 추가 — 반환 타입이 바뀌므로 create or replace로
+--  불가능해 먼저 drop 후 재생성합니다)
 -- ------------------------------------------------------------------
 
-create or replace function unlock_spot_details(p_spot_id uuid)
+drop function if exists unlock_spot_details(uuid);
+
+create function unlock_spot_details(p_spot_id uuid)
 returns table (
   exact_lat double precision,
   exact_lng double precision,
