@@ -17,6 +17,7 @@ import type {
   UserCertificationRow,
   CommunityPostRow,
   CommunityReplyRow,
+  SpotCreatorLinkRow,
 } from "@/lib/types/database";
 
 /**
@@ -585,6 +586,26 @@ export const MOCK_COMMUNITY_REPLIES: Record<string, CommunityReplyRow[]> = {
   ],
   cp2: [
     { id: "cr3", post_id: "cp2", author_id: "u1", username: "aqua_min", body: "죽도 서핑스쿨 다 비슷한데 오전반이 파도가 조금 더 순해서 초보자에게 좋아요.", created_at: iso(5) },
+  ],
+};
+
+// ------------------------------------------------------------------
+// 크리에이터 링크(블로그/유튜브) — 정보 제공자 유입 유도, 승인 없이 즉시 공개
+// ------------------------------------------------------------------
+export const MOCK_CREATOR_LINKS: Record<string, SpotCreatorLinkRow[]> = {
+  "munseom-jeju": [
+    {
+      id: "cl1", spot_id: "munseom-jeju", user_id: "u1", username: "aqua_min",
+      link_type: "youtube", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      title: "문섬 스노클링 브이로그 (연산호 군락 실촬영)",
+      is_hidden: false, created_at: iso(8),
+    },
+    {
+      id: "cl2", spot_id: "munseom-jeju", user_id: "u2", username: "seabreeze",
+      link_type: "blog", url: "https://blog.naver.com/example/223000000",
+      title: "문섬 스노클링 준비물 & 접근로 후기",
+      is_hidden: false, created_at: iso(20),
+    },
   ],
 };
 

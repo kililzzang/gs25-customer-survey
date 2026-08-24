@@ -49,6 +49,7 @@ export const FEATURE_FLAG_DEFAULTS = {
   activity_scuba: false, // 3차 오픈 — 전문 자격 영역, 인증레벨 데이터 확보 후 활성화
   community_board: false, // 신규 기능 — 최소 스키마로 준비, UI 완성도 확인 후 활성화
   certifications_profile: true, // PADI/AIDA 등 자격증 등록 및 인증된 전문가 뱃지
+  creator_links: true, // 정보 제공자 블로그/유튜브 링크 — 승인 없이 즉시 공개 (supabase/migrations/0021)
 } as const satisfies Record<string, boolean>;
 
 export type FeatureFlagKey = keyof typeof FEATURE_FLAG_DEFAULTS;

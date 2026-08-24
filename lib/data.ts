@@ -22,6 +22,7 @@ import {
   MOCK_CERTIFICATIONS,
   MOCK_COMMUNITY_POSTS,
   MOCK_COMMUNITY_REPLIES,
+  MOCK_CREATOR_LINKS,
   type MockLeaderboardEntry,
   type MockProfile,
 } from "@/lib/mock-data";
@@ -48,6 +49,7 @@ import type {
   UserCertificationRow,
   CommunityPostRow,
   CommunityReplyRow,
+  SpotCreatorLinkRow,
 } from "@/lib/types/database";
 
 /**
@@ -608,4 +610,30 @@ export async function getCommunityPost(
     post: { ...typedPost, username: typedPost.profiles?.username },
     replies: typedReplies.map((r) => ({ ...r, username: r.profiles?.username })),
   };
+}
+
+/**
+ * 스팟에 달린 크리에이터 링크(블로그/유튜브). feature flag: creator_links.
+ * 승인 대기 없이 즉시 공개되는 정보 제공자 유입 콘텐츠 — is_hidden=false인 것만 조회.
+ */
+export async function getSpotCreatorLinks(
+  spotId: string,
+  slug: string
+): Promise<SpotCreatorLinkRow[]> {
+  const supabase = await createClient();
+  if (!supabase) {
+    return MOCK_CREATOR_LINKS[slug] ?? [];
+  }
+
+  const { data, error } = await supabase
+    .from("spot_creator_links")
+    .select("*, profiles:user_id(username)")
+    .eq("spot_id", spotId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) return [];
+  return (data as (SpotCreatorLinkRow & { profiles: { username: string } | null })[]).map((l) => ({
+    ...l,
+    username: l.profiles?.username,
+  }));
 }
